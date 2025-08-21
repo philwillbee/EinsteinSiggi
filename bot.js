@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, REST, Routes, ActivityType } = require('discord.js');
+const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, REST, Routes, ActivityType, Partials } = require('discord.js');
 require('dotenv').config();
 
 // Create a new client instance
@@ -8,20 +8,26 @@ const client = new Client({
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.DirectMessages
+    ],
+    partials: [
+        Partials.Channel,
+        Partials.Message
     ]
 });
 
 // Einstein image URL
 const einsteinImage = 'https://upload.wikimedia.org/wikipedia/commons/1/14/Albert_Einstein_1947.jpg';
 
-// Commands
+// Commands with explicit DM permission
 const commands = [
     new SlashCommandBuilder()
         .setName('siggi')
-        .setDescription('Get a picture of Albert Einstein'),
+        .setDescription('Get a picture of Albert Einstein')
+        .setDMPermission(true),
     new SlashCommandBuilder()
         .setName('chickensoup')
         .setDescription('Express frustration about packet chicken soup')
+        .setDMPermission(true)
 ];
 
 // Register commands globally when bot starts
@@ -31,8 +37,8 @@ async function registerGlobalCommands() {
         
         console.log('Started refreshing global application (/) commands.');
         
-        // Get client ID from token
-        const clientId = Buffer.from(process.env.DISCORD_TOKEN.split('.')[0], 'base64').toString();
+        // Get client ID from the logged in client
+        const clientId = client.user.id;
         
         await rest.put(
             Routes.applicationCommands(clientId),
