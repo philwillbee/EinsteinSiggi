@@ -265,6 +265,181 @@ async function getStarmerApprovalRating() {
     }
 }
 
+// Function to get Catholic liturgical calendar data
+async function getCatholicLiturgicalData() {
+    try {
+        const today = new Date();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        
+        // Try to scrape from Catholic.org saints calendar
+        const catholicUrl = `https://www.catholic.org/saints/stday.php?month=${month}&day=${day}`;
+        
+        const response = await axios.get(catholicUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+        });
+        
+        const $ = cheerio.load(response.data);
+        
+        // Extract saint information
+        let saintName = null;
+        let saintDescription = null;
+        let patronOf = null;
+        
+        // Look for saint names and descriptions
+        $('h3, h2, .saint-name, strong').each(function() {
+            const text = $(this).text().trim();
+            if (text.includes('Saint') || text.includes('St.') || text.includes('Blessed')) {
+                if (!saintName && text.length < 100) {
+                    saintName = text.replace(/^(Saint|St\.|Blessed)\s+/i, '').trim();
+                }
+            }
+        });
+        
+        // Look for descriptions
+        $('p, div').each(function() {
+            const text = $(this).text().trim();
+            if (text.length > 50 && text.length < 300 && !saintDescription) {
+                if (text.includes('patron') || text.includes('feast') || text.includes('born') || text.includes('died')) {
+                    saintDescription = text.substring(0, 200) + '...';
+                    if (text.includes('patron of')) {
+                        const patronMatch = text.match(/patron of ([^.]+)/i);
+                        if (patronMatch) {
+                            patronOf = patronMatch[1];
+                        }
+                    }
+                }
+            }
+        });
+        
+        // If no data found, throw error to use fallback
+        if (!saintName) {
+            throw new Error('Could not parse saint data');
+        }
+        
+        // Get liturgical color for today (simplified liturgical calendar)
+        const liturgicalColor = getLiturgicalColor(today);
+        
+        return {
+            saintName: saintName,
+            description: saintDescription || 'A holy saint celebrated by the Catholic Church.',
+            patronOf: patronOf || 'various causes',
+            liturgicalColor: liturgicalColor,
+            date: today.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            }),
+            source: 'Catholic.org'
+        };
+        
+    } catch (error) {
+        console.error('Error fetching Catholic liturgical data:', error);
+        
+        // Fallback with authentic Catholic saints calendar
+        const today = new Date();
+        const saintsByDate = {
+            '01-01': { name: 'Mary, Mother of God', patron: 'mothers and the Church', color: 'white' },
+            '01-02': { name: 'Basil the Great', patron: 'hospital administrators', color: 'white' },
+            '01-03': { name: 'Most Holy Name of Jesus', patron: 'the faithful', color: 'white' },
+            '01-06': { name: 'Epiphany of the Lord', patron: 'all nations', color: 'white' },
+            '01-17': { name: 'Anthony of Egypt', patron: 'basket makers and butchers', color: 'white' },
+            '01-21': { name: 'Agnes', patron: 'young girls and chastity', color: 'red' },
+            '01-24': { name: 'Francis de Sales', patron: 'writers and journalists', color: 'white' },
+            '01-25': { name: 'Conversion of Saint Paul', patron: 'missionaries', color: 'white' },
+            '01-28': { name: 'Thomas Aquinas', patron: 'students and philosophers', color: 'white' },
+            '01-31': { name: 'John Bosco', patron: 'young people', color: 'white' },
+            '02-03': { name: 'Blaise', patron: 'throat ailments', color: 'red' },
+            '02-05': { name: 'Agatha', patron: 'breast cancer patients', color: 'red' },
+            '02-06': { name: 'Paul Miki and Companions', patron: 'Japan', color: 'red' },
+            '02-11': { name: 'Our Lady of Lourdes', patron: 'sick people', color: 'white' },
+            '02-14': { name: 'Cyril and Methodius', patron: 'Europe', color: 'white' },
+            '02-22': { name: 'Chair of Saint Peter', patron: 'papal authority', color: 'white' }
+        };
+        
+        const dateKey = String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+        const fallbackSaint = saintsByDate[dateKey] || { 
+            name: 'the Saints', 
+            patron: 'all faithful', 
+            color: getLiturgicalColor(today).name 
+        };
+        
+        return {
+            saintName: fallbackSaint.name,
+            description: `Today we celebrate Saint ${fallbackSaint.name}, a beloved saint of the Catholic Church.`,
+            patronOf: fallbackSaint.patron,
+            liturgicalColor: { name: fallbackSaint.color, hex: getColorHex(fallbackSaint.color) },
+            date: today.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            }),
+            source: 'Catholic Calendar'
+        };
+    }
+}
+
+// Function to determine liturgical color based on date
+function getLiturgicalColor(date) {
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    
+    // Simplified liturgical calendar colors
+    if ((month === 12 && day >= 25) || month === 1 && day <= 6) {
+        return { name: 'white', hex: 0xFFFFFF }; // Christmas season
+    } else if (month === 3 || month === 4) {
+        return { name: 'purple', hex: 0x663399 }; // Lent (approximate)
+    } else if (month === 5 || (month === 6 && day < 15)) {
+        return { name: 'white', hex: 0xFFFFFF }; // Easter season
+    } else if (month === 12 && day < 25) {
+        return { name: 'purple', hex: 0x663399 }; // Advent
+    } else {
+        return { name: 'green', hex: 0x228B22 }; // Ordinary time
+    }
+}
+
+// Function to get color hex from name
+function getColorHex(colorName) {
+    const colors = {
+        'white': 0xFFFFFF,
+        'red': 0xDC143C,
+        'purple': 0x663399,
+        'green': 0x228B22,
+        'rose': 0xFF69B4,
+        'gold': 0xFFD700
+    };
+    return colors[colorName] || 0x228B22;
+}
+
+// Function to get saint image from web search
+async function getSaintImage(saintName) {
+    try {
+        // Try to find an image from Wikimedia Commons or Catholic sources
+        const searchQuery = `Saint ${saintName} icon painting`;
+        const wikiUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(searchQuery)}&gsrlimit=1&prop=imageinfo&iiprop=url&format=json`;
+        
+        const response = await axios.get(wikiUrl);
+        
+        if (response.data.query && response.data.query.pages) {
+            const pages = Object.values(response.data.query.pages);
+            if (pages.length > 0 && pages[0].imageinfo) {
+                return pages[0].imageinfo[0].url;
+            }
+        }
+        
+        // Fallback to a generic Catholic image
+        return 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Christ_Pantocrator_Sinai_6th_century.jpg/256px-Christ_Pantocrator_Sinai_6th_century.jpg';
+        
+    } catch (error) {
+        console.error('Error fetching saint image:', error);
+        return 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Christ_Pantocrator_Sinai_6th_century.jpg/256px-Christ_Pantocrator_Sinai_6th_century.jpg';
+    }
+}
+
 // Commands with DM integration support
 const commands = [
     {
@@ -300,6 +475,12 @@ const commands = [
     {
         name: 'starmer',
         description: 'Get Keir Starmer approval ratings from YouGov polls',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
+    },
+    {
+        name: 'calendar',
+        description: 'Get today\'s Catholic liturgical calendar and saint of the day',
         integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
         contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
     }
@@ -538,6 +719,62 @@ client.on('interactionCreate', async interaction => {
             try {
                 await interaction.editReply({
                     content: 'Sorry, something went wrong while getting polling information!',
+                });
+            } catch {
+                console.error('Failed to send error message to user');
+            }
+        }
+    } else if (commandName === 'calendar') {
+        try {
+            // Defer the response for scraping and API calls
+            await interaction.deferReply();
+            
+            // Get Catholic liturgical data
+            const liturgical = await getCatholicLiturgicalData();
+            
+            // Get saint image
+            const saintImage = await getSaintImage(liturgical.saintName);
+            
+            // Create elegant Vatican-style embed
+            const embed = new EmbedBuilder()
+                .setTitle(`✝️ ${liturgical.date}`)
+                .setDescription(`**Saint ${liturgical.saintName}**\n*Liturgical Color: ${liturgical.liturgicalColor.name.charAt(0).toUpperCase() + liturgical.liturgicalColor.name.slice(1)}*`)
+                .setColor(liturgical.liturgicalColor.hex)
+                .addFields(
+                    { 
+                        name: '📿 About the Saint', 
+                        value: liturgical.description, 
+                        inline: false 
+                    },
+                    { 
+                        name: '🙏 Patron Saint Of', 
+                        value: liturgical.patronOf.charAt(0).toUpperCase() + liturgical.patronOf.slice(1), 
+                        inline: true 
+                    },
+                    { 
+                        name: '🕊️ Liturgical Season', 
+                        value: `Current liturgical color is **${liturgical.liturgicalColor.name}**`, 
+                        inline: true 
+                    }
+                )
+                .setImage(saintImage)
+                .setThumbnail('https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Coat_of_arms_of_the_Vatican_City.svg/200px-Coat_of_arms_of_the_Vatican_City.svg.png')
+                .setFooter({ 
+                    text: `${liturgical.source} • Catholic Liturgical Calendar • Requested by ${interaction.user.displayName}`,
+                    iconURL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Coat_of_arms_of_the_Vatican_City.svg/50px-Coat_of_arms_of_the_Vatican_City.svg.png'
+                })
+                .setTimestamp();
+            
+            await interaction.editReply({ embeds: [embed] });
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Calendar command used by ${interaction.user.tag} in ${location} - Saint: ${liturgical.saintName}`);
+            
+        } catch (error) {
+            console.error('Error in calendar command:', error);
+            try {
+                await interaction.editReply({
+                    content: 'Sorry, something went wrong while getting liturgical calendar information!',
                 });
             } catch {
                 console.error('Failed to send error message to user');
