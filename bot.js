@@ -18,16 +18,20 @@ const client = new Client({
 // Einstein image URL
 const einsteinImage = 'https://upload.wikimedia.org/wikipedia/commons/1/14/Albert_Einstein_1947.jpg';
 
-// Commands with explicit DM permission
+// Commands with DM integration support
 const commands = [
-    new SlashCommandBuilder()
-        .setName('siggi')
-        .setDescription('Get a picture of Albert Einstein')
-        .setDMPermission(true),
-    new SlashCommandBuilder()
-        .setName('chickensoup')
-        .setDescription('Express frustration about packet chicken soup')
-        .setDMPermission(true)
+    {
+        name: 'siggi',
+        description: 'Get a picture of Albert Einstein',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
+    },
+    {
+        name: 'chickensoup',
+        description: 'Express frustration about packet chicken soup',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
+    }
 ];
 
 // Register commands globally when bot starts
@@ -42,7 +46,7 @@ async function registerGlobalCommands() {
         
         await rest.put(
             Routes.applicationCommands(clientId),
-            { body: commands.map(command => command.toJSON()) }
+            { body: commands }
         );
         
         console.log('Successfully reloaded global application (/) commands.');
