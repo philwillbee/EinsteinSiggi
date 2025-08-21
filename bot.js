@@ -269,131 +269,72 @@ async function getStarmerApprovalRating() {
 async function getCatholicLiturgicalData() {
     try {
         const today = new Date();
+        const year = today.getFullYear();
         const month = String(today.getMonth() + 1).padStart(2, '0');
         const day = String(today.getDate()).padStart(2, '0');
+        const dateString = `${year}-${month}-${day}`;
         
-        // Try Vatican News saints calendar first
+        // Try Czech Liturgical Calendar API first
         try {
-            const vaticanUrl = 'https://www.vaticannews.va/en/saints.html';
-            const vaticanResponse = await axios.get(vaticanUrl, {
+            const czechApiUrl = `http://calapi.inadiutorium.cz/api/v0/en/calendars/default/${year}/${month}/${day}`;
+            console.log(`Trying Czech API: ${czechApiUrl}`);
+            
+            const czechResponse = await axios.get(czechApiUrl, {
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                }
+                },
+                timeout: 10000
             });
             
-            const $vatican = cheerio.load(vaticanResponse.data);
-            
-            // Look for today's saint in Vatican News
-            let saintName = null;
-            let saintDescription = null;
-            let patronOf = null;
-            
-            // Search for saint content in various Vatican News structures
-            $vatican('h1, h2, h3, .title, .saint-name, strong').each(function() {
-                const text = $vatican(this).text().trim();
-                if ((text.includes('Saint') || text.includes('St.')) && text.length < 100) {
-                    saintName = text.replace(/^(Saint|St\.)\s*/i, '').trim();
-                    return false; // Break the loop
+            if (czechResponse.data && czechResponse.data.celebrations && czechResponse.data.celebrations.length > 0) {
+                const celebration = czechResponse.data.celebrations[0];
+                let saintName = celebration.title || '';
+                let saintDescription = '';
+                let patronOf = 'various causes';
+                let liturgicalColor = 'green';
+                
+                // Extract saint name (remove "Saint" or "St." prefix if present)
+                saintName = saintName.replace(/^(Saint|St\.)\s*/i, '').trim();
+                
+                // Get liturgical color from API if available
+                if (czechResponse.data.colour) {
+                    liturgicalColor = czechResponse.data.colour.toLowerCase();
                 }
-            });
-            
-            // Look for saint description
-            $vatican('p, .description, .content').each(function() {
-                const text = $vatican(this).text().trim();
-                if (text.length > 50 && text.length < 500 && !saintDescription) {
-                    saintDescription = text.substring(0, 250) + '...';
-                    
-                    // Extract patron information if available
-                    if (text.includes('patron')) {
-                        const patronMatch = text.match(/patron\s+(?:saint\s+)?of\s+([^.,]+)/i);
-                        if (patronMatch) {
-                            patronOf = patronMatch[1].trim();
-                        }
+                
+                // Get description from the API if available
+                if (celebration.description) {
+                    saintDescription = celebration.description;
+                } else {
+                    saintDescription = `Today we celebrate ${saintName}, a beloved saint of the Catholic Church.`;
+                }
+                
+                // Try to extract patron information from title or description
+                if (saintDescription.includes('patron')) {
+                    const patronMatch = saintDescription.match(/patron\s+(?:saint\s+)?of\s+([^.,]+)/i);
+                    if (patronMatch) {
+                        patronOf = patronMatch[1].trim();
                     }
-                    return false; // Break the loop
                 }
-            });
-            
-            if (saintName) {
-                const liturgicalColor = getLiturgicalColor(today);
+                
                 return {
                     saintName: saintName,
-                    description: saintDescription || `Today we celebrate ${saintName}, a beloved saint of the Catholic Church.`,
-                    patronOf: patronOf || 'various causes',
-                    liturgicalColor: liturgicalColor,
+                    description: saintDescription,
+                    patronOf: patronOf,
+                    liturgicalColor: { name: liturgicalColor, hex: getColorHex(liturgicalColor) },
                     date: today.toLocaleDateString('en-US', { 
                         weekday: 'long', 
                         year: 'numeric', 
                         month: 'long', 
                         day: 'numeric' 
                     }),
-                    source: 'Vatican News'
+                    source: 'Czech Liturgical Calendar API'
                 };
             }
-        } catch (vaticanError) {
-            console.log('Vatican News scraping failed, trying alternative sources...');
+        } catch (czechError) {
+            console.log('Czech API failed, trying alternatives...', czechError.message);
         }
         
-        // Alternative: Try Franciscan Media saints calendar
-        try {
-            const franciscanUrl = `https://www.franciscanmedia.org/saint-of-the-day/`;
-            const franciscanResponse = await axios.get(franciscanUrl, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                }
-            });
-            
-            const $franc = cheerio.load(franciscanResponse.data);
-            
-            let saintName = null;
-            let saintDescription = null;
-            
-            // Look for saint name in Franciscan Media structure
-            $franc('h1, .title, .saint-title').each(function() {
-                const text = $franc(this).text().trim();
-                if ((text.includes('Saint') || text.includes('St.')) && !saintName) {
-                    saintName = text.replace(/^(Saint|St\.)\s*/i, '').trim();
-                    return false;
-                }
-            });
-            
-            // Look for description
-            $franc('p, .content, .description').first().each(function() {
-                const text = $franc(this).text().trim();
-                if (text.length > 30) {
-                    saintDescription = text.substring(0, 250) + '...';
-                    return false;
-                }
-            });
-            
-            if (saintName) {
-                const liturgicalColor = getLiturgicalColor(today);
-                return {
-                    saintName: saintName,
-                    description: saintDescription || `Today we celebrate ${saintName}, a beloved saint of the Catholic Church.`,
-                    patronOf: 'various causes',
-                    liturgicalColor: liturgicalColor,
-                    date: today.toLocaleDateString('en-US', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                    }),
-                    source: 'Franciscan Media'
-                };
-            }
-        } catch (franciscanError) {
-            console.log('Franciscan Media scraping failed, using authentic calendar...');
-        }
-        
-        // If scraping fails, use authentic Catholic calendar data
-        throw new Error('Could not scrape saint data, using calendar');
-        
-    } catch (error) {
-        console.error('Error fetching Catholic liturgical data:', error);
-        
-        // Comprehensive authentic Catholic saints calendar
-        const today = new Date();
+        // Fallback to comprehensive authentic Catholic saints calendar
         const saintsByDate = {
             // August saints
             '08-01': { name: 'Alphonsus Liguori', patron: 'confessors and moral theologians', color: 'white', desc: 'Doctor of the Church, founder of the Redemptorists, and patron of confessors and moral theologians.' },
@@ -419,17 +360,15 @@ async function getCatholicLiturgicalData() {
             '08-25': { name: 'Louis', patron: 'France', color: 'white', desc: 'King Louis IX of France, model of Christian kingship.' },
             '08-27': { name: 'Monica', patron: 'mothers', color: 'white', desc: 'Mother of Saint Augustine, patron of mothers and wives.' },
             '08-28': { name: 'Augustine', patron: 'theologians', color: 'white', desc: 'Bishop of Hippo, Doctor of the Church, author of Confessions and City of God.' },
-            '08-29': { name: 'Passion of Saint John the Baptist', patron: 'baptism', color: 'red', desc: 'Commemorating the martyrdom of John the Baptist.' },
-            
-            // Add more dates as needed
-            '01-01': { name: 'Mary, Mother of God', patron: 'mothers and the Church', color: 'white', desc: 'The Blessed Virgin Mary, Mother of God and our Mother.' },
-            '12-25': { name: 'Nativity of the Lord', patron: 'all humanity', color: 'white', desc: 'The birth of Jesus Christ, our Lord and Savior.' }
+            '08-29': { name: 'Passion of Saint John the Baptist', patron: 'baptism', color: 'red', desc: 'Commemorating the martyrdom of John the Baptist.' }
         };
         
         const dateKey = String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+        console.log(`Looking for date key: ${dateKey}`);
         const todaysSaint = saintsByDate[dateKey];
         
         if (todaysSaint) {
+            console.log(`Found saint: ${todaysSaint.name}`);
             return {
                 saintName: todaysSaint.name,
                 description: todaysSaint.desc,
@@ -444,7 +383,7 @@ async function getCatholicLiturgicalData() {
                 source: 'Roman Catholic Calendar'
             };
         } else {
-            // Generic fallback for dates not in our calendar
+            console.log(`No saint found for ${dateKey}, using generic`);
             return {
                 saintName: 'the Saints',
                 description: 'Today we celebrate all the saints who have gone before us in faith.',
@@ -459,6 +398,25 @@ async function getCatholicLiturgicalData() {
                 source: 'Roman Catholic Calendar'
             };
         }
+        
+    } catch (error) {
+        console.error('Error in getCatholicLiturgicalData:', error);
+        
+        // Emergency fallback - should never reach here
+        const today = new Date();
+        return {
+            saintName: 'Pius X',
+            description: 'Pope who fought against modernism and promoted frequent communion and early communion for children.',
+            patronOf: 'catechists',
+            liturgicalColor: { name: 'white', hex: 0xFFFFFF },
+            date: today.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            }),
+            source: 'Emergency Fallback'
+        };
     }
 }
 
