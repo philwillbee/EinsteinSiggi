@@ -272,114 +272,193 @@ async function getCatholicLiturgicalData() {
         const month = String(today.getMonth() + 1).padStart(2, '0');
         const day = String(today.getDate()).padStart(2, '0');
         
-        // Try to scrape from Catholic.org saints calendar
-        const catholicUrl = `https://www.catholic.org/saints/stday.php?month=${month}&day=${day}`;
-        
-        const response = await axios.get(catholicUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-        });
-        
-        const $ = cheerio.load(response.data);
-        
-        // Extract saint information
-        let saintName = null;
-        let saintDescription = null;
-        let patronOf = null;
-        
-        // Look for saint names and descriptions
-        $('h3, h2, .saint-name, strong').each(function() {
-            const text = $(this).text().trim();
-            if (text.includes('Saint') || text.includes('St.') || text.includes('Blessed')) {
-                if (!saintName && text.length < 100) {
-                    saintName = text.replace(/^(Saint|St\.|Blessed)\s+/i, '').trim();
+        // Try Vatican News saints calendar first
+        try {
+            const vaticanUrl = 'https://www.vaticannews.va/en/saints.html';
+            const vaticanResponse = await axios.get(vaticanUrl, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
                 }
-            }
-        });
-        
-        // Look for descriptions
-        $('p, div').each(function() {
-            const text = $(this).text().trim();
-            if (text.length > 50 && text.length < 300 && !saintDescription) {
-                if (text.includes('patron') || text.includes('feast') || text.includes('born') || text.includes('died')) {
-                    saintDescription = text.substring(0, 200) + '...';
-                    if (text.includes('patron of')) {
-                        const patronMatch = text.match(/patron of ([^.]+)/i);
+            });
+            
+            const $vatican = cheerio.load(vaticanResponse.data);
+            
+            // Look for today's saint in Vatican News
+            let saintName = null;
+            let saintDescription = null;
+            let patronOf = null;
+            
+            // Search for saint content in various Vatican News structures
+            $vatican('h1, h2, h3, .title, .saint-name, strong').each(function() {
+                const text = $vatican(this).text().trim();
+                if ((text.includes('Saint') || text.includes('St.')) && text.length < 100) {
+                    saintName = text.replace(/^(Saint|St\.)\s*/i, '').trim();
+                    return false; // Break the loop
+                }
+            });
+            
+            // Look for saint description
+            $vatican('p, .description, .content').each(function() {
+                const text = $vatican(this).text().trim();
+                if (text.length > 50 && text.length < 500 && !saintDescription) {
+                    saintDescription = text.substring(0, 250) + '...';
+                    
+                    // Extract patron information if available
+                    if (text.includes('patron')) {
+                        const patronMatch = text.match(/patron\s+(?:saint\s+)?of\s+([^.,]+)/i);
                         if (patronMatch) {
-                            patronOf = patronMatch[1];
+                            patronOf = patronMatch[1].trim();
                         }
                     }
+                    return false; // Break the loop
                 }
+            });
+            
+            if (saintName) {
+                const liturgicalColor = getLiturgicalColor(today);
+                return {
+                    saintName: saintName,
+                    description: saintDescription || `Today we celebrate ${saintName}, a beloved saint of the Catholic Church.`,
+                    patronOf: patronOf || 'various causes',
+                    liturgicalColor: liturgicalColor,
+                    date: today.toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                    }),
+                    source: 'Vatican News'
+                };
             }
-        });
-        
-        // If no data found, throw error to use fallback
-        if (!saintName) {
-            throw new Error('Could not parse saint data');
+        } catch (vaticanError) {
+            console.log('Vatican News scraping failed, trying alternative sources...');
         }
         
-        // Get liturgical color for today (simplified liturgical calendar)
-        const liturgicalColor = getLiturgicalColor(today);
+        // Alternative: Try Franciscan Media saints calendar
+        try {
+            const franciscanUrl = `https://www.franciscanmedia.org/saint-of-the-day/`;
+            const franciscanResponse = await axios.get(franciscanUrl, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+            });
+            
+            const $franc = cheerio.load(franciscanResponse.data);
+            
+            let saintName = null;
+            let saintDescription = null;
+            
+            // Look for saint name in Franciscan Media structure
+            $franc('h1, .title, .saint-title').each(function() {
+                const text = $franc(this).text().trim();
+                if ((text.includes('Saint') || text.includes('St.')) && !saintName) {
+                    saintName = text.replace(/^(Saint|St\.)\s*/i, '').trim();
+                    return false;
+                }
+            });
+            
+            // Look for description
+            $franc('p, .content, .description').first().each(function() {
+                const text = $franc(this).text().trim();
+                if (text.length > 30) {
+                    saintDescription = text.substring(0, 250) + '...';
+                    return false;
+                }
+            });
+            
+            if (saintName) {
+                const liturgicalColor = getLiturgicalColor(today);
+                return {
+                    saintName: saintName,
+                    description: saintDescription || `Today we celebrate ${saintName}, a beloved saint of the Catholic Church.`,
+                    patronOf: 'various causes',
+                    liturgicalColor: liturgicalColor,
+                    date: today.toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                    }),
+                    source: 'Franciscan Media'
+                };
+            }
+        } catch (franciscanError) {
+            console.log('Franciscan Media scraping failed, using authentic calendar...');
+        }
         
-        return {
-            saintName: saintName,
-            description: saintDescription || 'A holy saint celebrated by the Catholic Church.',
-            patronOf: patronOf || 'various causes',
-            liturgicalColor: liturgicalColor,
-            date: today.toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-            }),
-            source: 'Catholic.org'
-        };
+        // If scraping fails, use authentic Catholic calendar data
+        throw new Error('Could not scrape saint data, using calendar');
         
     } catch (error) {
         console.error('Error fetching Catholic liturgical data:', error);
         
-        // Fallback with authentic Catholic saints calendar
+        // Comprehensive authentic Catholic saints calendar
         const today = new Date();
         const saintsByDate = {
-            '01-01': { name: 'Mary, Mother of God', patron: 'mothers and the Church', color: 'white' },
-            '01-02': { name: 'Basil the Great', patron: 'hospital administrators', color: 'white' },
-            '01-03': { name: 'Most Holy Name of Jesus', patron: 'the faithful', color: 'white' },
-            '01-06': { name: 'Epiphany of the Lord', patron: 'all nations', color: 'white' },
-            '01-17': { name: 'Anthony of Egypt', patron: 'basket makers and butchers', color: 'white' },
-            '01-21': { name: 'Agnes', patron: 'young girls and chastity', color: 'red' },
-            '01-24': { name: 'Francis de Sales', patron: 'writers and journalists', color: 'white' },
-            '01-25': { name: 'Conversion of Saint Paul', patron: 'missionaries', color: 'white' },
-            '01-28': { name: 'Thomas Aquinas', patron: 'students and philosophers', color: 'white' },
-            '01-31': { name: 'John Bosco', patron: 'young people', color: 'white' },
-            '02-03': { name: 'Blaise', patron: 'throat ailments', color: 'red' },
-            '02-05': { name: 'Agatha', patron: 'breast cancer patients', color: 'red' },
-            '02-06': { name: 'Paul Miki and Companions', patron: 'Japan', color: 'red' },
-            '02-11': { name: 'Our Lady of Lourdes', patron: 'sick people', color: 'white' },
-            '02-14': { name: 'Cyril and Methodius', patron: 'Europe', color: 'white' },
-            '02-22': { name: 'Chair of Saint Peter', patron: 'papal authority', color: 'white' }
+            // August saints
+            '08-01': { name: 'Alphonsus Liguori', patron: 'confessors and moral theologians', color: 'white', desc: 'Doctor of the Church, founder of the Redemptorists, and patron of confessors and moral theologians.' },
+            '08-02': { name: 'Eusebius of Vercelli', patron: 'clergy', color: 'white', desc: 'Bishop who defended the divinity of Christ against Arianism.' },
+            '08-04': { name: 'John Vianney', patron: 'parish priests', color: 'white', desc: 'The Curé of Ars, patron saint of parish priests, known for his holiness and pastoral care.' },
+            '08-05': { name: 'Dedication of the Basilica of St. Mary Major', patron: 'Rome', color: 'white', desc: 'Celebrating the dedication of one of the four major basilicas of Rome.' },
+            '08-06': { name: 'Transfiguration of the Lord', patron: 'all Christians', color: 'white', desc: 'The feast celebrating Jesus\' transfiguration before Peter, James, and John.' },
+            '08-07': { name: 'Sixtus II and Companions', patron: 'deacons', color: 'red', desc: 'Pope and martyr with his deacons, including Saint Lawrence.' },
+            '08-08': { name: 'Dominic', patron: 'astronomers', color: 'white', desc: 'Founder of the Dominican Order, devoted to preaching and teaching.' },
+            '08-09': { name: 'Teresa Benedicta of the Cross', patron: 'Europe', color: 'red', desc: 'Edith Stein, Jewish philosopher who became a Carmelite nun and died in Auschwitz.' },
+            '08-10': { name: 'Lawrence', patron: 'cooks and librarians', color: 'red', desc: 'Deacon and martyr of Rome, patron of cooks and librarians.' },
+            '08-11': { name: 'Clare', patron: 'television and eye disease', color: 'white', desc: 'Founder of the Poor Clares, follower of Saint Francis of Assisi.' },
+            '08-13': { name: 'Pontian and Hippolytus', patron: 'reconciliation', color: 'red', desc: 'Pope and priest who were reconciled before their martyrdom.' },
+            '08-14': { name: 'Maximilian Kolbe', patron: 'drug addicts', color: 'red', desc: 'Franciscan priest who gave his life for another prisoner in Auschwitz.' },
+            '08-15': { name: 'Assumption of the Blessed Virgin Mary', patron: 'all faithful', color: 'white', desc: 'The assumption of Mary, body and soul, into heavenly glory.' },
+            '08-16': { name: 'Stephen of Hungary', patron: 'Hungary', color: 'white', desc: 'King who established Christianity in Hungary.' },
+            '08-19': { name: 'John Eudes', patron: 'France', color: 'white', desc: 'Priest who promoted devotion to the Sacred Hearts of Jesus and Mary.' },
+            '08-20': { name: 'Bernard', patron: 'beekeepers', color: 'white', desc: 'Abbot of Clairvaux, Doctor of the Church, known as the "Mellifluous Doctor."' },
+            '08-21': { name: 'Pius X', patron: 'catechists', color: 'white', desc: 'Pope who fought against modernism and promoted frequent communion and early communion for children.' },
+            '08-22': { name: 'Queenship of the Blessed Virgin Mary', patron: 'all creation', color: 'white', desc: 'Celebrating Mary as Queen of Heaven and Earth.' },
+            '08-23': { name: 'Rose of Lima', patron: 'Latin America', color: 'white', desc: 'First saint of the Americas, Dominican tertiary known for her severe penances.' },
+            '08-24': { name: 'Bartholomew', patron: 'tanners', color: 'red', desc: 'Apostle, also known as Nathanael, patron of tanners and plasterers.' },
+            '08-25': { name: 'Louis', patron: 'France', color: 'white', desc: 'King Louis IX of France, model of Christian kingship.' },
+            '08-27': { name: 'Monica', patron: 'mothers', color: 'white', desc: 'Mother of Saint Augustine, patron of mothers and wives.' },
+            '08-28': { name: 'Augustine', patron: 'theologians', color: 'white', desc: 'Bishop of Hippo, Doctor of the Church, author of Confessions and City of God.' },
+            '08-29': { name: 'Passion of Saint John the Baptist', patron: 'baptism', color: 'red', desc: 'Commemorating the martyrdom of John the Baptist.' },
+            
+            // Add more dates as needed
+            '01-01': { name: 'Mary, Mother of God', patron: 'mothers and the Church', color: 'white', desc: 'The Blessed Virgin Mary, Mother of God and our Mother.' },
+            '12-25': { name: 'Nativity of the Lord', patron: 'all humanity', color: 'white', desc: 'The birth of Jesus Christ, our Lord and Savior.' }
         };
         
         const dateKey = String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
-        const fallbackSaint = saintsByDate[dateKey] || { 
-            name: 'the Saints', 
-            patron: 'all faithful', 
-            color: getLiturgicalColor(today).name 
-        };
+        const todaysSaint = saintsByDate[dateKey];
         
-        return {
-            saintName: fallbackSaint.name,
-            description: `Today we celebrate Saint ${fallbackSaint.name}, a beloved saint of the Catholic Church.`,
-            patronOf: fallbackSaint.patron,
-            liturgicalColor: { name: fallbackSaint.color, hex: getColorHex(fallbackSaint.color) },
-            date: today.toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-            }),
-            source: 'Catholic Calendar'
-        };
+        if (todaysSaint) {
+            return {
+                saintName: todaysSaint.name,
+                description: todaysSaint.desc,
+                patronOf: todaysSaint.patron,
+                liturgicalColor: { name: todaysSaint.color, hex: getColorHex(todaysSaint.color) },
+                date: today.toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                }),
+                source: 'Roman Catholic Calendar'
+            };
+        } else {
+            // Generic fallback for dates not in our calendar
+            return {
+                saintName: 'the Saints',
+                description: 'Today we celebrate all the saints who have gone before us in faith.',
+                patronOf: 'all faithful',
+                liturgicalColor: getLiturgicalColor(today),
+                date: today.toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                }),
+                source: 'Roman Catholic Calendar'
+            };
+        }
     }
 }
 
@@ -418,20 +497,44 @@ function getColorHex(colorName) {
 // Function to get saint image from web search
 async function getSaintImage(saintName) {
     try {
-        // Try to find an image from Wikimedia Commons or Catholic sources
-        const searchQuery = `Saint ${saintName} icon painting`;
-        const wikiUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(searchQuery)}&gsrlimit=1&prop=imageinfo&iiprop=url&format=json`;
+        // Create specific search terms for different saints
+        const saintImages = {
+            'Pius X': 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Pope_Pius_X.jpg/256px-Pope_Pius_X.jpg',
+            'Alphonsus Liguori': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Alphonsus_Liguori.jpg/256px-Alphonsus_Liguori.jpg',
+            'John Vianney': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Saint_Jean-Marie_Vianney.jpg/256px-Saint_Jean-Marie_Vianney.jpg',
+            'Lawrence': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Saint_Lawrence_by_Bernini.jpg/256px-Saint_Lawrence_by_Bernini.jpg',
+            'Clare': 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Saint_Clare_of_Assisi.jpg/256px-Saint_Clare_of_Assisi.jpg',
+            'Dominic': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Saint_Dominic.jpg/256px-Saint_Dominic.jpg',
+            'Bernard': 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Saint_Bernard_of_Clairvaux.jpg/256px-Saint_Bernard_of_Clairvaux.jpg',
+            'Augustine': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/Saint_Augustine_by_Philippe_de_Champaigne.jpg/256px-Saint_Augustine_by_Philippe_de_Champaigne.jpg',
+            'Monica': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Saint_Monica.jpg/256px-Saint_Monica.jpg',
+            'Bartholomew': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/Saint_Bartholomew.jpg/256px-Saint_Bartholomew.jpg',
+            'Rose of Lima': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Saint_Rose_of_Lima.jpg/256px-Saint_Rose_of_Lima.jpg',
+            'Teresa Benedicta of the Cross': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Edith_Stein.jpg/256px-Edith_Stein.jpg',
+            'Maximilian Kolbe': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Saint_Maximilian_Kolbe.jpg/256px-Saint_Maximilian_Kolbe.jpg',
+            'Mary, Mother of God': 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Madonna_and_Child_by_Duccio.jpg/256px-Madonna_and_Child_by_Duccio.jpg',
+            'Francis de Sales': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Saint_Francis_de_Sales.jpg/256px-Saint_Francis_de_Sales.jpg',
+            'Thomas Aquinas': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Thomas_Aquinas.jpg/256px-Thomas_Aquinas.jpg'
+        };
+        
+        // Check if we have a specific image for this saint
+        if (saintImages[saintName]) {
+            return saintImages[saintName];
+        }
+        
+        // Try to search Wikimedia Commons for the saint
+        const searchQuery = `Saint ${saintName.replace(/\s+/g, '_')}`;
+        const wikiUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchQuery)}&srlimit=1&format=json&srnamespace=6`;
         
         const response = await axios.get(wikiUrl);
         
-        if (response.data.query && response.data.query.pages) {
-            const pages = Object.values(response.data.query.pages);
-            if (pages.length > 0 && pages[0].imageinfo) {
-                return pages[0].imageinfo[0].url;
-            }
+        if (response.data.query && response.data.query.search && response.data.query.search.length > 0) {
+            const fileName = response.data.query.search[0].title.replace('File:', '');
+            const imageUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}?width=256`;
+            return imageUrl;
         }
         
-        // Fallback to a generic Catholic image
+        // Fallback to generic saint image
         return 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Christ_Pantocrator_Sinai_6th_century.jpg/256px-Christ_Pantocrator_Sinai_6th_century.jpg';
         
     } catch (error) {
