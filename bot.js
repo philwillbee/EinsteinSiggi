@@ -181,7 +181,7 @@ client.on('interactionCreate', async interaction => {
                 embed.setImage(scientist.image);
             }
             
-            await interaction.followup.send({ embeds: [embed] });
+            await interaction.editReply({ embeds: [embed] });
             
             const location = interaction.guild ? interaction.guild.name : 'DM';
             console.log(`Scientist command used by ${interaction.user.tag} in ${location} - Got: ${scientist.name}`);
@@ -189,17 +189,9 @@ client.on('interactionCreate', async interaction => {
         } catch (error) {
             console.error('Error in scientist command:', error);
             try {
-                if (interaction.deferred) {
-                    await interaction.followup.send({
-                        content: 'Sorry, something went wrong while getting scientist information!',
-                        ephemeral: true
-                    });
-                } else {
-                    await interaction.reply({
-                        content: 'Sorry, something went wrong while getting scientist information!',
-                        ephemeral: true
-                    });
-                }
+                await interaction.editReply({
+                    content: 'Sorry, something went wrong while getting scientist information!',
+                });
             } catch {
                 console.error('Failed to send error message to user');
             }
