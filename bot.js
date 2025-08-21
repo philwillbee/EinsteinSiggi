@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, REST, Routes } = require('discord.js');
+const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, REST, Routes, ActivityType } = require('discord.js');
 require('dotenv').config();
 
 // Create a new client instance
@@ -24,29 +24,37 @@ const commands = [
         .setDescription('Express frustration about packet chicken soup')
 ];
 
+// Register commands globally when bot starts
+async function registerGlobalCommands() {
+    try {
+        const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+        
+        console.log('Started refreshing global application (/) commands.');
+        
+        // Get client ID from token
+        const clientId = Buffer.from(process.env.DISCORD_TOKEN.split('.')[0], 'base64').toString();
+        
+        await rest.put(
+            Routes.applicationCommands(clientId),
+            { body: commands.map(command => command.toJSON()) }
+        );
+        
+        console.log('Successfully reloaded global application (/) commands.');
+    } catch (error) {
+        console.error('Error registering global commands:', error);
+    }
+}
+
 // When the client is ready
 client.once('ready', async () => {
     console.log(`${client.user.tag} has connected to Discord!`);
     console.log(`Bot is in ${client.guilds.cache.size} guilds`);
     
     // Set bot status
-    client.user.setActivity('/siggi commands', { type: 'LISTENING' });
+    client.user.setActivity('/siggi commands', { type: ActivityType.Listening });
     
-    // Register slash commands
-    try {
-        const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
-        
-        console.log('Started refreshing application (/) commands.');
-        
-        await rest.put(
-            Routes.applicationCommands(client.user.id),
-            { body: commands }
-        );
-        
-        console.log('Successfully reloaded application (/) commands.');
-    } catch (error) {
-        console.error('Error registering commands:', error);
-    }
+    // Register global commands so they work in DMs
+    await registerGlobalCommands();
 });
 
 // Handle slash commands
