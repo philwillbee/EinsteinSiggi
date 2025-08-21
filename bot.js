@@ -493,22 +493,53 @@ async function getSaintImage(saintName) {
             return exactMatch;
         }
         
-        // Try Wikipedia API to get the main image from the saint's Wikipedia page
+        // Try Catholic.org saint images
         try {
-            const wikiPageUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent('Saint ' + saintName)}`;
-            const wikiResponse = await axios.get(wikiPageUrl, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (compatible; DiscordBot/1.0)'
-                }
-            });
+            const catholicOrgImages = {
+                'pius x': 'https://www.catholic.org/files/images/saints/piusx.jpg',
+                'alphonsus liguori': 'https://www.catholic.org/files/images/saints/alphonsusliguori.jpg',
+                'john vianney': 'https://www.catholic.org/files/images/saints/johnvianney.jpg',
+                'lawrence': 'https://www.catholic.org/files/images/saints/lawrence.jpg',
+                'clare': 'https://www.catholic.org/files/images/saints/clare.jpg',
+                'dominic': 'https://www.catholic.org/files/images/saints/dominic.jpg',
+                'bernard': 'https://www.catholic.org/files/images/saints/bernard.jpg',
+                'augustine': 'https://www.catholic.org/files/images/saints/augustine.jpg',
+                'monica': 'https://www.catholic.org/files/images/saints/monica.jpg',
+                'bartholomew': 'https://www.catholic.org/files/images/saints/bartholomew.jpg',
+                'maximilian kolbe': 'https://www.catholic.org/files/images/saints/maximiliankolbe.jpg',
+                'thomas aquinas': 'https://www.catholic.org/files/images/saints/thomasaquinas.jpg'
+            };
             
-            if (wikiResponse.data && wikiResponse.data.thumbnail && wikiResponse.data.thumbnail.source) {
-                // Get higher resolution version
-                const imageUrl = wikiResponse.data.thumbnail.source.replace(/\/thumb\/(.+)\/\d+px-.+$/, '/thumb/$1/256px-$1');
-                return imageUrl;
+            const catholicImage = catholicOrgImages[cleanName];
+            if (catholicImage) {
+                return catholicImage;
             }
-        } catch (wikiError) {
-            console.log('Wikipedia API failed for saint image, using fallback');
+        } catch (catholicError) {
+            console.log('Catholic.org images not available');
+        }
+        
+        // Try Wikimedia Commons direct search for saint portraits
+        try {
+            const searchTerms = [
+                `${saintName} saint portrait`,
+                `Saint ${saintName} icon`,
+                `${saintName} catholic saint`
+            ];
+            
+            for (const searchTerm of searchTerms) {
+                const commonsUrl = `https://commons.wikimedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(searchTerm)}&limit=3&namespace=6&format=json`;
+                const commonsResponse = await axios.get(commonsUrl);
+                
+                if (commonsResponse.data && commonsResponse.data[1] && commonsResponse.data[1].length > 0) {
+                    const fileName = commonsResponse.data[1][0].replace('File:', '');
+                    if (fileName.toLowerCase().includes('saint') || fileName.toLowerCase().includes(saintName.toLowerCase().split(' ')[0])) {
+                        const imageUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}?width=300`;
+                        return imageUrl;
+                    }
+                }
+            }
+        } catch (commonsError) {
+            console.log('Wikimedia Commons search failed');
         }
         
         // Final fallback to generic Catholic image
