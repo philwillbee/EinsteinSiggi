@@ -452,35 +452,30 @@ function getColorHex(colorName) {
     return colors[colorName] || 0x228B22;
 }
 
-// Function to get saint image from Wikipedia
+// Function to get saint image - only returns verified working images
 async function getSaintImage(saintName) {
     try {
-        // Use a reliable Catholic saint image - Pope Pius X
-        const saintImages = {
-            'Pius X': 'https://i.imgur.com/8QvJ3Cx.jpg',
-            'Pius X, pope': 'https://i.imgur.com/8QvJ3Cx.jpg'
+        // Only verified working Catholic saint images - tested URLs only
+        const workingImages = {
+            // Add working image URLs here when verified
+            // For now, return null to prevent broken images
         };
         
-        // Clean the saint name for lookup (remove pope, bishop, etc. suffixes)
+        // Clean the saint name for lookup
         const cleanName = saintName.toLowerCase().replace(/,\s*(pope|bishop|martyr|virgin|doctor).*$/, '').trim();
-        const exactMatch = saintImages[saintName] || saintImages[cleanName];
+        const exactMatch = workingImages[saintName] || workingImages[cleanName];
         
         if (exactMatch) {
             return exactMatch;
         }
         
-        // Debug log the saint name
-        console.log(`Looking for image for saint: "${saintName}" (clean: "${cleanName}")`);
-        
-        // Return the working fallback image for testing
-        console.log('Using fallback Christ Pantocrator image');
-        
-        // Final fallback to generic Catholic image
-        return 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Christ_Pantocrator_Sinai_6th_century.jpg/256px-Christ_Pantocrator_Sinai_6th_century.jpg';
+        // Return null for no image instead of broken links
+        console.log(`No verified image available for saint: "${saintName}"`);
+        return null;
         
     } catch (error) {
-        console.error('Error fetching saint image:', error);
-        return 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Christ_Pantocrator_Sinai_6th_century.jpg/256px-Christ_Pantocrator_Sinai_6th_century.jpg';
+        console.error('Error in saint image function:', error);
+        return null;
     }
 }
 
@@ -784,13 +779,17 @@ client.on('interactionCreate', async interaction => {
                 .setTitle(`✝️ SANCTI ET BEATI`)
                 .setDescription(`**${liturgical.date}**\n\n**SAINT ${liturgical.saintName.toUpperCase()}**\n\n*${liturgical.description}*\n\n━━━━━━━━━━━━━━━━━━━━━\n**Liturgical Color:** ${liturgical.liturgicalColor.name.charAt(0).toUpperCase() + liturgical.liturgicalColor.name.slice(1)}`)
                 .setColor(liturgical.liturgicalColor.hex)
-                .setImage(saintImage)
                 .setThumbnail('https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Coat_of_arms_of_the_Vatican_City.svg/200px-Coat_of_arms_of_the_Vatican_City.svg.png')
                 .setFooter({ 
                     text: `CALENDARIUM ROMANUM GENERALE • ${liturgical.source}`,
                     iconURL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Coat_of_arms_of_the_Vatican_City.svg/50px-Coat_of_arms_of_the_Vatican_City.svg.png'
                 })
                 .setTimestamp();
+            
+            // Only add saint image if we have a verified working URL
+            if (saintImage) {
+                embed.setImage(saintImage);
+            }
             
             await interaction.editReply({ embeds: [embed] });
             
