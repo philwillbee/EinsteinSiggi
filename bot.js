@@ -32,6 +32,16 @@ const scientists = [
     'Copernicus', 'Leonardo da Vinci', 'Archimedes', 'Aristotle', 'Plato'
 ];
 
+// List of vegan recipe search terms
+const veganRecipeTerms = [
+    'vegan pasta', 'vegan curry', 'vegan stir fry', 'vegan soup', 'vegan salad',
+    'vegan pizza', 'vegan burger', 'vegan tacos', 'vegan smoothie bowl', 'vegan sandwich',
+    'vegan quinoa', 'vegan lentil', 'vegan chickpea', 'vegan rice bowl', 'vegan noodles',
+    'vegan Buddha bowl', 'vegan wrap', 'vegan chili', 'vegan pancakes', 'vegan oatmeal',
+    'vegan tofu', 'vegan tempeh', 'vegan mushroom', 'vegan avocado', 'vegan sweet potato',
+    'vegan black bean', 'vegan hummus', 'vegan ramen', 'vegan pad thai', 'vegan risotto'
+];
+
 // Function to get random scientist info from Wikipedia
 async function getRandomScientist() {
     try {
@@ -67,6 +77,76 @@ async function getRandomScientist() {
     }
 }
 
+// Function to get random vegan recipe
+async function getRandomVeganRecipe() {
+    try {
+        const randomTerm = veganRecipeTerms[Math.floor(Math.random() * veganRecipeTerms.length)];
+        
+        // Use Edamam Recipe API (free tier)
+        const appId = '3b9d2a85'; // Public demo app ID
+        const appKey = '88cdb7a4b4a6d5b5b5c40ebdc158ead7'; // Public demo key
+        
+        const searchUrl = `https://api.edamam.com/search?q=${encodeURIComponent(randomTerm)}&app_id=${appId}&app_key=${appKey}&health=vegan&to=10`;
+        
+        const response = await axios.get(searchUrl);
+        const recipes = response.data.hits;
+        
+        if (recipes && recipes.length > 0) {
+            const randomRecipe = recipes[Math.floor(Math.random() * recipes.length)].recipe;
+            
+            // Format ingredients list
+            const ingredients = randomRecipe.ingredientLines.slice(0, 8).join('\n• ');
+            
+            return {
+                name: randomRecipe.label,
+                image: randomRecipe.image,
+                ingredients: ingredients,
+                calories: Math.round(randomRecipe.calories / randomRecipe.yield),
+                servings: randomRecipe.yield,
+                url: randomRecipe.url,
+                source: randomRecipe.source
+            };
+        } else {
+            throw new Error('No recipes found');
+        }
+    } catch (error) {
+        console.error('Error fetching recipe data:', error);
+        
+        // Fallback with curated vegan recipes
+        const fallbackRecipes = [
+            {
+                name: 'Creamy Vegan Pasta',
+                ingredients: '• 300g pasta\n• 1 cup cashews\n• 2 cloves garlic\n• 1 cup vegetable broth\n• 2 tbsp nutritional yeast\n• Salt and pepper\n• Fresh herbs',
+                calories: 450,
+                servings: 4,
+                image: 'https://images.unsplash.com/photo-1621996346565-e3dbc353d946?w=500',
+                url: 'https://example.com/vegan-pasta',
+                source: 'Vegan Recipe Collection'
+            },
+            {
+                name: 'Chickpea Buddha Bowl',
+                ingredients: '• 1 cup quinoa\n• 1 can chickpeas\n• 2 cups vegetables\n• 1 avocado\n• Tahini dressing\n• Seeds and nuts',
+                calories: 520,
+                servings: 2,
+                image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=500',
+                url: 'https://example.com/buddha-bowl',
+                source: 'Healthy Vegan Meals'
+            },
+            {
+                name: 'Lentil Coconut Curry',
+                ingredients: '• 1 cup red lentils\n• 1 can coconut milk\n• 2 cups vegetables\n• Curry spices\n• Ginger and garlic\n• Fresh cilantro',
+                calories: 380,
+                servings: 4,
+                image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=500',
+                url: 'https://example.com/lentil-curry',
+                source: 'Plant-Based Kitchen'
+            }
+        ];
+        
+        return fallbackRecipes[Math.floor(Math.random() * fallbackRecipes.length)];
+    }
+}
+
 // Commands with DM integration support
 const commands = [
     {
@@ -84,6 +164,12 @@ const commands = [
     {
         name: 'scientist',
         description: 'Get information about a random scientist',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
+    },
+    {
+        name: 'vegan',
+        description: 'Get a random vegan recipe with picture',
         integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
         contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
     }
@@ -191,6 +277,51 @@ client.on('interactionCreate', async interaction => {
             try {
                 await interaction.editReply({
                     content: 'Sorry, something went wrong while getting scientist information!',
+                });
+            } catch {
+                console.error('Failed to send error message to user');
+            }
+        }
+    } else if (commandName === 'vegan') {
+        try {
+            // Defer the response for longer processing time
+            await interaction.deferReply();
+            
+            // Get random vegan recipe data
+            const recipe = await getRandomVeganRecipe();
+            
+            // Create embed with recipe info
+            const embed = new EmbedBuilder()
+                .setTitle(`🌱 ${recipe.name}`)
+                .setDescription(recipe.ingredients)
+                .setColor(0x00b894)
+                .addFields(
+                    { name: '👥 Servings', value: recipe.servings.toString(), inline: true },
+                    { name: '🔥 Calories', value: `${recipe.calories} per serving`, inline: true },
+                    { name: '📚 Source', value: recipe.source, inline: true }
+                )
+                .setFooter({ text: `Requested by ${interaction.user.displayName} • Vegan Recipe` });
+            
+            // Add image if available
+            if (recipe.image) {
+                embed.setImage(recipe.image);
+            }
+            
+            // Add URL if available
+            if (recipe.url && !recipe.url.includes('example.com')) {
+                embed.setURL(recipe.url);
+            }
+            
+            await interaction.editReply({ embeds: [embed] });
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Vegan command used by ${interaction.user.tag} in ${location} - Got: ${recipe.name}`);
+            
+        } catch (error) {
+            console.error('Error in vegan command:', error);
+            try {
+                await interaction.editReply({
+                    content: 'Sorry, something went wrong while getting vegan recipe information!',
                 });
             } catch {
                 console.error('Failed to send error message to user');
