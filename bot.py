@@ -83,7 +83,6 @@ async def siggi(interaction: discord.Interaction):
         # Create embed with Einstein image
         embed = discord.Embed(
             title="Albert Einstein",
-            description="*\"Imagination is more important than knowledge.\"*",
             color=0x1f8b4c
         )
         embed.set_image(url=image_url)
@@ -107,6 +106,25 @@ async def siggi(interaction: discord.Interaction):
                     "Sorry, something went wrong while getting Einstein's image! 🤔",
                     ephemeral=True
                 )
+        except:
+            logger.error("Failed to send error message to user")
+
+@bot.tree.command(name="chickensoup", description="Express frustration about packet chicken soup")
+async def chickensoup(interaction: discord.Interaction):
+    """Slash command for chicken soup rant"""
+    try:
+        message = "my fucking mother cooks this horrid packet chicken soup SHIT I hate it, it smells so bad and gets everywhere"
+        await interaction.response.send_message(message)
+        
+        logger.info(f"Chickensoup command used by {interaction.user} in {interaction.guild}")
+        
+    except Exception as e:
+        logger.error(f"Error in chickensoup command: {e}")
+        try:
+            await interaction.response.send_message(
+                "Sorry, something went wrong!",
+                ephemeral=True
+            )
         except:
             logger.error("Failed to send error message to user")
 
