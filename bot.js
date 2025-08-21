@@ -798,30 +798,13 @@ client.on('interactionCreate', async interaction => {
             
             // Create elegant Vatican-style embed
             const embed = new EmbedBuilder()
-                .setTitle(`✝️ ${liturgical.date}`)
-                .setDescription(`**Saint ${liturgical.saintName}**\n*Liturgical Color: ${liturgical.liturgicalColor.name.charAt(0).toUpperCase() + liturgical.liturgicalColor.name.slice(1)}*`)
+                .setTitle(`✝️ SANCTI ET BEATI`)
+                .setDescription(`**${liturgical.date}**\n\n**SAINT ${liturgical.saintName.toUpperCase()}**\n\n*${liturgical.description}*\n\n━━━━━━━━━━━━━━━━━━━━━\n**Liturgical Color:** ${liturgical.liturgicalColor.name.charAt(0).toUpperCase() + liturgical.liturgicalColor.name.slice(1)}`)
                 .setColor(liturgical.liturgicalColor.hex)
-                .addFields(
-                    { 
-                        name: '📿 About the Saint', 
-                        value: liturgical.description, 
-                        inline: false 
-                    },
-                    { 
-                        name: '🙏 Patron Saint Of', 
-                        value: liturgical.patronOf.charAt(0).toUpperCase() + liturgical.patronOf.slice(1), 
-                        inline: true 
-                    },
-                    { 
-                        name: '🕊️ Liturgical Season', 
-                        value: `Current liturgical color is **${liturgical.liturgicalColor.name}**`, 
-                        inline: true 
-                    }
-                )
                 .setImage(saintImage)
                 .setThumbnail('https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Coat_of_arms_of_the_Vatican_City.svg/200px-Coat_of_arms_of_the_Vatican_City.svg.png')
                 .setFooter({ 
-                    text: `${liturgical.source} • Catholic Liturgical Calendar • Requested by ${interaction.user.displayName}`,
+                    text: `CALENDARIUM ROMANUM GENERALE • ${liturgical.source}`,
                     iconURL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Coat_of_arms_of_the_Vatican_City.svg/50px-Coat_of_arms_of_the_Vatican_City.svg.png'
                 })
                 .setTimestamp();
