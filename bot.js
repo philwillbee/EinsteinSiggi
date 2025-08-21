@@ -6,7 +6,8 @@ const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.DirectMessages
     ]
 });
 
@@ -64,7 +65,8 @@ client.on('interactionCreate', async interaction => {
                 .setFooter({ text: `Requested by ${interaction.user.displayName}` });
 
             await interaction.reply({ embeds: [embed] });
-            console.log(`Siggi command used by ${interaction.user.tag} in ${interaction.guild.name}`);
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Siggi command used by ${interaction.user.tag} in ${location}`);
         } catch (error) {
             console.error('Error in siggi command:', error);
             await interaction.reply({ 
@@ -76,7 +78,8 @@ client.on('interactionCreate', async interaction => {
         try {
             const message = 'my fucking mother cooks this horrid packet chicken soup SHIT I hate it, it smells so bad and gets everywhere';
             await interaction.reply(message);
-            console.log(`Chickensoup command used by ${interaction.user.tag} in ${interaction.guild.name}`);
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Chickensoup command used by ${interaction.user.tag} in ${location}`);
         } catch (error) {
             console.error('Error in chickensoup command:', error);
             await interaction.reply({ 
