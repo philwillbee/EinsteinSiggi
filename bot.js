@@ -452,31 +452,12 @@ function getColorHex(colorName) {
     return colors[colorName] || 0x228B22;
 }
 
-// Function to get saint image - only returns verified working images
+// Function to get saint image - focusing on reliability over images
 async function getSaintImage(saintName) {
-    try {
-        // Only verified working Catholic saint images - tested URLs only
-        const workingImages = {
-            // Add working image URLs here when verified
-            // For now, return null to prevent broken images
-        };
-        
-        // Clean the saint name for lookup
-        const cleanName = saintName.toLowerCase().replace(/,\s*(pope|bishop|martyr|virgin|doctor).*$/, '').trim();
-        const exactMatch = workingImages[saintName] || workingImages[cleanName];
-        
-        if (exactMatch) {
-            return exactMatch;
-        }
-        
-        // Return null for no image instead of broken links
-        console.log(`No verified image available for saint: "${saintName}"`);
-        return null;
-        
-    } catch (error) {
-        console.error('Error in saint image function:', error);
-        return null;
-    }
+    // Skip saint images to prevent broken displays
+    // The liturgical data and Vatican styling are the main features
+    console.log(`Saint image skipped for reliability: "${saintName}"`);
+    return null;
 }
 
 // Commands with DM integration support
