@@ -32,10 +32,7 @@ class SiggiBot(commands.Bot):
         
         # Einstein image URLs - using reliable sources
         self.einstein_images = [
-            "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Einstein_1921_by_F_Schmutzer_-_restoration.jpg/256px-Einstein_1921_by_F_Schmutzer_-_restoration.jpg",
-            "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Albert_Einstein_Head.jpg/256px-Albert_Einstein_Head.jpg",
-            "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/Einstein_1905.jpg/256px-Einstein_1905.jpg",
-            "https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/Einstein1916.jpg/256px-Einstein1916.jpg"
+            "https://upload.wikimedia.org/wikipedia/commons/1/14/Albert_Einstein_1947.jpg"
         ]
 
     async def setup_hook(self):
