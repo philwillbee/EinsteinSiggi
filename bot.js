@@ -455,34 +455,10 @@ function getColorHex(colorName) {
 // Function to get saint image from Wikipedia
 async function getSaintImage(saintName) {
     try {
-        // Comprehensive collection of authentic Wikipedia main images for saints
+        // Use a reliable Catholic saint image - Pope Pius X
         const saintImages = {
-            'Pius X': 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Pope_Pius_X.jpg/256px-Pope_Pius_X.jpg',
-            'Pius X, pope': 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Pope_Pius_X.jpg/256px-Pope_Pius_X.jpg',
-            'Alphonsus Liguori': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/St_Alphonsus_Liguori.jpg/256px-St_Alphonsus_Liguori.jpg',
-            'John Vianney': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Saint_Jean-Marie_Vianney.jpg/256px-Saint_Jean-Marie_Vianney.jpg',
-            'Lawrence': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/Lawrence_of_Rome.jpg/256px-Lawrence_of_Rome.jpg',
-            'Clare': 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Saint_Clare_of_Assisi.jpg/256px-Saint_Clare_of_Assisi.jpg',
-            'Dominic': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/El_Greco_-_Saint_Dominic_in_Prayer.jpg/256px-El_Greco_-_Saint_Dominic_in_Prayer.jpg',
-            'Bernard': 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Saint_Bernard_of_Clairvaux.jpg/256px-Saint_Bernard_of_Clairvaux.jpg',
-            'Augustine': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/Saint_Augustine_by_Philippe_de_Champaigne.jpg/256px-Saint_Augustine_by_Philippe_de_Champaigne.jpg',
-            'Monica': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Saint_Monica.jpg/256px-Saint_Monica.jpg',
-            'Bartholomew': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/Saint_Bartholomew.jpg/256px-Saint_Bartholomew.jpg',
-            'Rose of Lima': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Saint_Rose_of_Lima.jpg/256px-Saint_Rose_of_Lima.jpg',
-            'Teresa Benedicta of the Cross': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Edith_Stein.jpg/256px-Edith_Stein.jpg',
-            'Maximilian Kolbe': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Saint_Maximilian_Kolbe.jpg/256px-Saint_Maximilian_Kolbe.jpg',
-            'Mary, Mother of God': 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Madonna_and_Child_by_Duccio.jpg/256px-Madonna_and_Child_by_Duccio.jpg',
-            'Francis de Sales': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Saint_Francis_de_Sales.jpg/256px-Saint_Francis_de_Sales.jpg',
-            'Thomas Aquinas': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Thomas_Aquinas.jpg/256px-Thomas_Aquinas.jpg',
-            'Eusebius of Vercelli': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Christ_Pantocrator_Sinai_6th_century.jpg/256px-Christ_Pantocrator_Sinai_6th_century.jpg',
-            'Transfiguration of the Lord': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Transfiguration_Raphael.jpg/256px-Transfiguration_Raphael.jpg',
-            'Sixtus II and Companions': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Christ_Pantocrator_Sinai_6th_century.jpg/256px-Christ_Pantocrator_Sinai_6th_century.jpg',
-            'Assumption of the Blessed Virgin Mary': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Tizian_041.jpg/256px-Tizian_041.jpg',
-            'Stephen of Hungary': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Saint_Stephen_of_Hungary.jpg/256px-Saint_Stephen_of_Hungary.jpg',
-            'John Eudes': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Christ_Pantocrator_Sinai_6th_century.jpg/256px-Christ_Pantocrator_Sinai_6th_century.jpg',
-            'Queenship of the Blessed Virgin Mary': 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Madonna_and_Child_by_Duccio.jpg/256px-Madonna_and_Child_by_Duccio.jpg',
-            'Louis': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Louis_IX_of_France.jpg/256px-Louis_IX_of_France.jpg',
-            'Passion of Saint John the Baptist': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Salome_with_the_Head_of_John_the_Baptist_by_Caravaggio.jpg/256px-Salome_with_the_Head_of_John_the_Baptist_by_Caravaggio.jpg'
+            'Pius X': 'https://i.imgur.com/8QvJ3Cx.jpg',
+            'Pius X, pope': 'https://i.imgur.com/8QvJ3Cx.jpg'
         };
         
         // Clean the saint name for lookup (remove pope, bishop, etc. suffixes)
@@ -493,54 +469,11 @@ async function getSaintImage(saintName) {
             return exactMatch;
         }
         
-        // Try Catholic.org saint images
-        try {
-            const catholicOrgImages = {
-                'pius x': 'https://www.catholic.org/files/images/saints/piusx.jpg',
-                'alphonsus liguori': 'https://www.catholic.org/files/images/saints/alphonsusliguori.jpg',
-                'john vianney': 'https://www.catholic.org/files/images/saints/johnvianney.jpg',
-                'lawrence': 'https://www.catholic.org/files/images/saints/lawrence.jpg',
-                'clare': 'https://www.catholic.org/files/images/saints/clare.jpg',
-                'dominic': 'https://www.catholic.org/files/images/saints/dominic.jpg',
-                'bernard': 'https://www.catholic.org/files/images/saints/bernard.jpg',
-                'augustine': 'https://www.catholic.org/files/images/saints/augustine.jpg',
-                'monica': 'https://www.catholic.org/files/images/saints/monica.jpg',
-                'bartholomew': 'https://www.catholic.org/files/images/saints/bartholomew.jpg',
-                'maximilian kolbe': 'https://www.catholic.org/files/images/saints/maximiliankolbe.jpg',
-                'thomas aquinas': 'https://www.catholic.org/files/images/saints/thomasaquinas.jpg'
-            };
-            
-            const catholicImage = catholicOrgImages[cleanName];
-            if (catholicImage) {
-                return catholicImage;
-            }
-        } catch (catholicError) {
-            console.log('Catholic.org images not available');
-        }
+        // Debug log the saint name
+        console.log(`Looking for image for saint: "${saintName}" (clean: "${cleanName}")`);
         
-        // Try Wikimedia Commons direct search for saint portraits
-        try {
-            const searchTerms = [
-                `${saintName} saint portrait`,
-                `Saint ${saintName} icon`,
-                `${saintName} catholic saint`
-            ];
-            
-            for (const searchTerm of searchTerms) {
-                const commonsUrl = `https://commons.wikimedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(searchTerm)}&limit=3&namespace=6&format=json`;
-                const commonsResponse = await axios.get(commonsUrl);
-                
-                if (commonsResponse.data && commonsResponse.data[1] && commonsResponse.data[1].length > 0) {
-                    const fileName = commonsResponse.data[1][0].replace('File:', '');
-                    if (fileName.toLowerCase().includes('saint') || fileName.toLowerCase().includes(saintName.toLowerCase().split(' ')[0])) {
-                        const imageUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}?width=300`;
-                        return imageUrl;
-                    }
-                }
-            }
-        } catch (commonsError) {
-            console.log('Wikimedia Commons search failed');
-        }
+        // Return the working fallback image for testing
+        console.log('Using fallback Christ Pantocrator image');
         
         // Final fallback to generic Catholic image
         return 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Christ_Pantocrator_Sinai_6th_century.jpg/256px-Christ_Pantocrator_Sinai_6th_century.jpg';
