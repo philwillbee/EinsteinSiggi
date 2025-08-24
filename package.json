@@ -4,7 +4,7 @@
   "description": "A simple Discord bot that responds to `/siggi` slash commands with Albert Einstein images.",
   "main": "bot.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+	 "start": "node bot.js"
   },
   "keywords": [],
   "author": "",
