@@ -468,6 +468,99 @@ async function getSaintImage(saintName) {
     return null;
 }
 
+// Function to get coordinates for a location using geocoding
+async function getLocationCoordinates(locationName) {
+    try {
+        // Use Open-Meteo's geocoding API to get coordinates
+        const geocodingUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(locationName)}&count=1&language=en&format=json`;
+        
+        const response = await axios.get(geocodingUrl, {
+            headers: {
+                'User-Agent': 'SiggiBot/1.0 Discord Weather Bot'
+            }
+        });
+        
+        if (response.data && response.data.results && response.data.results.length > 0) {
+            const location = response.data.results[0];
+            return {
+                latitude: location.latitude,
+                longitude: location.longitude,
+                name: location.name,
+                country: location.country,
+                admin1: location.admin1 // State/region
+            };
+        } else {
+            throw new Error('Location not found');
+        }
+    } catch (error) {
+        console.error('Error getting location coordinates:', error);
+        throw new Error('Could not find the specified location');
+    }
+}
+
+// Function to get weather data from Open-Meteo API
+async function getWeatherData(latitude, longitude) {
+    try {
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&hourly=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto&forecast_days=1`;
+        
+        const response = await axios.get(weatherUrl, {
+            headers: {
+                'User-Agent': 'SiggiBot/1.0 Discord Weather Bot'
+            }
+        });
+        
+        if (response.data && response.data.current_weather) {
+            const current = response.data.current_weather;
+            const daily = response.data.daily;
+            const hourly = response.data.hourly;
+            
+            // Get weather code description
+            const weatherCodes = {
+                0: '☀️ Clear sky',
+                1: '🌤️ Mainly clear',
+                2: '⛅ Partly cloudy',
+                3: '☁️ Overcast',
+                45: '🌫️ Fog',
+                48: '🌫️ Depositing rime fog',
+                51: '🌦️ Light drizzle',
+                53: '🌦️ Moderate drizzle',
+                55: '🌦️ Dense drizzle',
+                61: '🌧️ Slight rain',
+                63: '🌧️ Moderate rain',
+                65: '🌧️ Heavy rain',
+                71: '🌨️ Slight snow',
+                73: '🌨️ Moderate snow',
+                75: '🌨️ Heavy snow',
+                80: '🌦️ Light rain showers',
+                81: '🌦️ Moderate rain showers',
+                82: '🌦️ Violent rain showers',
+                95: '⛈️ Thunderstorm',
+                96: '⛈️ Thunderstorm with hail',
+                99: '⛈️ Thunderstorm with heavy hail'
+            };
+            
+            const weatherDescription = weatherCodes[current.weathercode] || '🌡️ Unknown conditions';
+            
+            return {
+                temperature: Math.round(current.temperature),
+                weatherDescription: weatherDescription,
+                windSpeed: Math.round(current.windspeed),
+                windDirection: current.winddirection,
+                humidity: hourly.relative_humidity_2m ? hourly.relative_humidity_2m[0] : null,
+                precipitation: hourly.precipitation ? hourly.precipitation[0] : 0,
+                maxTemp: daily.temperature_2m_max ? Math.round(daily.temperature_2m_max[0]) : null,
+                minTemp: daily.temperature_2m_min ? Math.round(daily.temperature_2m_min[0]) : null,
+                time: current.time
+            };
+        } else {
+            throw new Error('Invalid weather data received');
+        }
+    } catch (error) {
+        console.error('Error getting weather data:', error);
+        throw new Error('Could not retrieve weather information');
+    }
+}
+
 // Commands with DM integration support
 const commands = [
     {
@@ -517,6 +610,20 @@ const commands = [
         description: 'Test if the bot is online and responsive',
         integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
         contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
+    },
+    {
+        name: 'weather',
+        description: 'Get current weather for any location',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'location',
+                type: 3, // STRING type
+                description: 'City or location name (e.g., Glasgow, London, New York)',
+                required: true
+            }
+        ]
     }
 ];
 
@@ -820,6 +927,87 @@ client.on('interactionCreate', async interaction => {
                 await interaction.reply({
                     content: 'Sorry, something went wrong with the ping command!',
                     ephemeral: true
+                });
+            } catch {
+                console.error('Failed to send error message to user');
+            }
+        }
+    } else if (commandName === 'weather') {
+        try {
+            // Defer the response for API calls
+            await interaction.deferReply();
+            
+            const location = interaction.options.getString('location');
+            
+            // Get coordinates for the location
+            const coordinates = await getLocationCoordinates(location);
+            
+            // Get weather data
+            const weatherData = await getWeatherData(coordinates.latitude, coordinates.longitude);
+            
+            // Create weather embed
+            const embed = new EmbedBuilder()
+                .setTitle(`🌤️ Weather for ${coordinates.name}`)
+                .setColor(0x87CEEB) // Sky blue color
+                .addFields(
+                    {
+                        name: '🌡️ Current Temperature',
+                        value: `${weatherData.temperature}°C`,
+                        inline: true
+                    },
+                    {
+                        name: '📊 Today\'s Range',
+                        value: weatherData.maxTemp && weatherData.minTemp ? 
+                            `${weatherData.minTemp}°C - ${weatherData.maxTemp}°C` : 'N/A',
+                        inline: true
+                    },
+                    {
+                        name: '💨 Wind',
+                        value: `${weatherData.windSpeed} km/h`,
+                        inline: true
+                    },
+                    {
+                        name: '🌤️ Conditions',
+                        value: weatherData.weatherDescription,
+                        inline: false
+                    }
+                )
+                .setFooter({
+                    text: `${coordinates.country}${coordinates.admin1 ? `, ${coordinates.admin1}` : ''} • Data from Open-Meteo.com`
+                })
+                .setTimestamp();
+            
+            // Add optional fields if available
+            if (weatherData.humidity) {
+                embed.addFields({
+                    name: '💧 Humidity',
+                    value: `${weatherData.humidity}%`,
+                    inline: true
+                });
+            }
+            
+            if (weatherData.precipitation > 0) {
+                embed.addFields({
+                    name: '🌧️ Precipitation',
+                    value: `${weatherData.precipitation}mm`,
+                    inline: true
+                });
+            }
+            
+            await interaction.editReply({ embeds: [embed] });
+            
+            const discordLocation = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Weather command used by ${interaction.user.tag} in ${discordLocation} for location: ${coordinates.name}`);
+            
+        } catch (error) {
+            console.error('Error in weather command:', error);
+            try {
+                const errorMessage = error.message.includes('not found') ? 
+                    `Sorry, I couldn't find weather data for "${interaction.options.getString('location')}". Please check the spelling or try a different location.` :
+                    'Sorry, something went wrong while getting weather information!';
+                
+                await interaction.editReply({
+                    content: errorMessage
                 });
             } catch {
                 console.error('Failed to send error message to user');
