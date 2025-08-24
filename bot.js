@@ -1,3 +1,11 @@
+global.File = class File extends Blob {
+  constructor(parts, name, options = {}) {
+    super(parts, options);
+    this.name = name;
+    this.lastModified = options.lastModified || Date.now();
+  }
+};
+
 const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, REST, Routes, ActivityType, Partials } = require('discord.js');
 const axios = require('axios');
 const cheerio = require('cheerio');
