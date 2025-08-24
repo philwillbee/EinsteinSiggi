@@ -9,7 +9,11 @@ global.File = class File extends Blob {
 const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, REST, Routes, ActivityType, Partials } = require('discord.js');
 const axios = require('axios');
 const cheerio = require('cheerio');
-require('dotenv').config();
+
+// Only load dotenv in development (not on Railway)
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config();
+}
 
 // Create a new client instance
 const client = new Client({
@@ -1022,6 +1026,18 @@ client.on('error', error => {
 });
 
 // Login to Discord
+console.log('Environment check:');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('Token available:', !!process.env.DISCORD_TOKEN);
+console.log('Token length:', process.env.DISCORD_TOKEN ? process.env.DISCORD_TOKEN.length : 0);
+
+if (!process.env.DISCORD_TOKEN) {
+    console.error('❌ DISCORD_TOKEN environment variable is not set!');
+    console.error('Please set your Discord bot token in Railway environment variables.');
+    process.exit(1);
+}
+
 client.login(process.env.DISCORD_TOKEN).catch(error => {
     console.error('Failed to login:', error);
+    console.error('Token used length:', process.env.DISCORD_TOKEN ? process.env.DISCORD_TOKEN.length : 0);
 });
