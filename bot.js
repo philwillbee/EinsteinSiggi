@@ -511,6 +511,12 @@ const commands = [
         description: 'Get today\'s Catholic liturgical calendar and saint of the day',
         integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
         contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
+    },
+    {
+        name: 'ping',
+        description: 'Test if the bot is online and responsive',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
     }
 ];
 
@@ -790,6 +796,30 @@ client.on('interactionCreate', async interaction => {
             try {
                 await interaction.editReply({
                     content: 'Sorry, something went wrong while getting liturgical calendar information!',
+                });
+            } catch {
+                console.error('Failed to send error message to user');
+            }
+        }
+    } else if (commandName === 'ping') {
+        try {
+            const startTime = Date.now();
+            await interaction.reply('Pong! 🏓');
+            const endTime = Date.now();
+            const latency = endTime - startTime;
+            
+            // Edit the reply to include latency
+            await interaction.editReply(`Pong! 🏓 Latency: ${latency}ms`);
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Ping command used by ${interaction.user.tag} in ${location} - Latency: ${latency}ms`);
+            
+        } catch (error) {
+            console.error('Error in ping command:', error);
+            try {
+                await interaction.reply({
+                    content: 'Sorry, something went wrong with the ping command!',
+                    ephemeral: true
                 });
             } catch {
                 console.error('Failed to send error message to user');
