@@ -502,7 +502,7 @@ async function getLocationCoordinates(locationName) {
     }
 }
 
-// Periodic table element data
+// Complete periodic table element data (all 118 elements)
 const elements = {
     'H': { name: 'Hydrogen', atomicNumber: 1, state: 'Gas', group: 'Nonmetal', fact: 'The most abundant element in the universe' },
     'He': { name: 'Helium', atomicNumber: 2, state: 'Gas', group: 'Noble Gas', fact: 'Second lightest element and makes your voice squeaky' },
@@ -524,15 +524,104 @@ const elements = {
     'Ar': { name: 'Argon', atomicNumber: 18, state: 'Gas', group: 'Noble Gas', fact: 'Used in light bulbs to prevent the filament from oxidizing' },
     'K': { name: 'Potassium', atomicNumber: 19, state: 'Solid', group: 'Alkali Metal', fact: 'Essential for nerve function, found in bananas' },
     'Ca': { name: 'Calcium', atomicNumber: 20, state: 'Solid', group: 'Alkaline Earth', fact: 'Makes bones and teeth strong' },
+    'Sc': { name: 'Scandium', atomicNumber: 21, state: 'Solid', group: 'Transition Metal', fact: 'Used in aerospace industry for lightweight alloys' },
+    'Ti': { name: 'Titanium', atomicNumber: 22, state: 'Solid', group: 'Transition Metal', fact: 'Stronger than steel but much lighter' },
+    'V': { name: 'Vanadium', atomicNumber: 23, state: 'Solid', group: 'Transition Metal', fact: 'Used to make super-strong steel alloys' },
+    'Cr': { name: 'Chromium', atomicNumber: 24, state: 'Solid', group: 'Transition Metal', fact: 'Gives stainless steel its shine and corrosion resistance' },
+    'Mn': { name: 'Manganese', atomicNumber: 25, state: 'Solid', group: 'Transition Metal', fact: 'Essential for steel production and plant growth' },
     'Fe': { name: 'Iron', atomicNumber: 26, state: 'Solid', group: 'Transition Metal', fact: 'Earth\'s core is mostly iron, and it\'s in your blood' },
+    'Co': { name: 'Cobalt', atomicNumber: 27, state: 'Solid', group: 'Transition Metal', fact: 'Used in blue pigments and rechargeable batteries' },
+    'Ni': { name: 'Nickel', atomicNumber: 28, state: 'Solid', group: 'Transition Metal', fact: 'Found in coins and stainless steel' },
     'Cu': { name: 'Copper', atomicNumber: 29, state: 'Solid', group: 'Transition Metal', fact: 'Excellent conductor, turns green when oxidized (Statue of Liberty)' },
     'Zn': { name: 'Zinc', atomicNumber: 30, state: 'Solid', group: 'Transition Metal', fact: 'Essential mineral that helps wounds heal faster' },
+    'Ga': { name: 'Gallium', atomicNumber: 31, state: 'Solid', group: 'Post-transition Metal', fact: 'Melts in your hand at body temperature' },
+    'Ge': { name: 'Germanium', atomicNumber: 32, state: 'Solid', group: 'Metalloid', fact: 'Used in fiber optic cables and semiconductors' },
+    'As': { name: 'Arsenic', atomicNumber: 33, state: 'Solid', group: 'Metalloid', fact: 'Famous poison but also used in some medications' },
+    'Se': { name: 'Selenium', atomicNumber: 34, state: 'Solid', group: 'Nonmetal', fact: 'Antioxidant mineral essential for immune function' },
+    'Br': { name: 'Bromine', atomicNumber: 35, state: 'Liquid', group: 'Halogen', fact: 'One of only two liquid elements at room temperature' },
+    'Kr': { name: 'Krypton', atomicNumber: 36, state: 'Gas', group: 'Noble Gas', fact: 'Used in high-performance light bulbs and lasers' },
+    'Rb': { name: 'Rubidium', atomicNumber: 37, state: 'Solid', group: 'Alkali Metal', fact: 'Used in atomic clocks for precise timekeeping' },
+    'Sr': { name: 'Strontium', atomicNumber: 38, state: 'Solid', group: 'Alkaline Earth', fact: 'Creates brilliant red color in fireworks' },
+    'Y': { name: 'Yttrium', atomicNumber: 39, state: 'Solid', group: 'Transition Metal', fact: 'Used in LED lights and cancer treatments' },
+    'Zr': { name: 'Zirconium', atomicNumber: 40, state: 'Solid', group: 'Transition Metal', fact: 'Extremely corrosion-resistant, used in nuclear reactors' },
+    'Nb': { name: 'Niobium', atomicNumber: 41, state: 'Solid', group: 'Transition Metal', fact: 'Superconductor used in MRI machines' },
+    'Mo': { name: 'Molybdenum', atomicNumber: 42, state: 'Solid', group: 'Transition Metal', fact: 'Essential for plant and animal enzymes' },
+    'Tc': { name: 'Technetium', atomicNumber: 43, state: 'Solid', group: 'Transition Metal', fact: 'First artificially produced element, radioactive' },
+    'Ru': { name: 'Ruthenium', atomicNumber: 44, state: 'Solid', group: 'Transition Metal', fact: 'Used in fountain pen nibs and computer hard drives' },
+    'Rh': { name: 'Rhodium', atomicNumber: 45, state: 'Solid', group: 'Transition Metal', fact: 'Most expensive precious metal, used in catalytic converters' },
+    'Pd': { name: 'Palladium', atomicNumber: 46, state: 'Solid', group: 'Transition Metal', fact: 'Absorbs hydrogen like a sponge' },
     'Ag': { name: 'Silver', atomicNumber: 47, state: 'Solid', group: 'Transition Metal', fact: 'Best electrical conductor of all elements' },
-    'Au': { name: 'Gold', atomicNumber: 79, state: 'Solid', group: 'Transition Metal', fact: 'So unreactive it never tarnishes or rusts' },
+    'Cd': { name: 'Cadmium', atomicNumber: 48, state: 'Solid', group: 'Transition Metal', fact: 'Toxic but used in rechargeable batteries' },
+    'In': { name: 'Indium', atomicNumber: 49, state: 'Solid', group: 'Post-transition Metal', fact: 'Soft metal used in touchscreen displays' },
+    'Sn': { name: 'Tin', atomicNumber: 50, state: 'Solid', group: 'Post-transition Metal', fact: 'Used for thousands of years to make bronze' },
+    'Sb': { name: 'Antimony', atomicNumber: 51, state: 'Solid', group: 'Metalloid', fact: 'Used in flame retardants and ancient cosmetics' },
+    'Te': { name: 'Tellurium', atomicNumber: 52, state: 'Solid', group: 'Metalloid', fact: 'Rare element used in solar panels' },
+    'I': { name: 'Iodine', atomicNumber: 53, state: 'Solid', group: 'Halogen', fact: 'Essential for thyroid function, found in salt' },
+    'Xe': { name: 'Xenon', atomicNumber: 54, state: 'Gas', group: 'Noble Gas', fact: 'Used in powerful car headlights and ion thrusters' },
+    'Cs': { name: 'Cesium', atomicNumber: 55, state: 'Solid', group: 'Alkali Metal', fact: 'Used to define the length of a second' },
+    'Ba': { name: 'Barium', atomicNumber: 56, state: 'Solid', group: 'Alkaline Earth', fact: 'Makes brilliant green color in fireworks' },
+    'La': { name: 'Lanthanum', atomicNumber: 57, state: 'Solid', group: 'Lanthanide', fact: 'Used in camera lenses and stage lighting' },
+    'Ce': { name: 'Cerium', atomicNumber: 58, state: 'Solid', group: 'Lanthanide', fact: 'Most abundant rare earth element, used in catalytic converters' },
+    'Pr': { name: 'Praseodymium', atomicNumber: 59, state: 'Solid', group: 'Lanthanide', fact: 'Creates brilliant yellow-green color in glass' },
+    'Nd': { name: 'Neodymium', atomicNumber: 60, state: 'Solid', group: 'Lanthanide', fact: 'Used in super-strong permanent magnets' },
+    'Pm': { name: 'Promethium', atomicNumber: 61, state: 'Solid', group: 'Lanthanide', fact: 'Radioactive element used in nuclear batteries' },
+    'Sm': { name: 'Samarium', atomicNumber: 62, state: 'Solid', group: 'Lanthanide', fact: 'Used in cancer treatment and powerful magnets' },
+    'Eu': { name: 'Europium', atomicNumber: 63, state: 'Solid', group: 'Lanthanide', fact: 'Makes the red color in old TV screens' },
+    'Gd': { name: 'Gadolinium', atomicNumber: 64, state: 'Solid', group: 'Lanthanide', fact: 'Used as contrast agent in MRI scans' },
+    'Tb': { name: 'Terbium', atomicNumber: 65, state: 'Solid', group: 'Lanthanide', fact: 'Used in green phosphors for displays' },
+    'Dy': { name: 'Dysprosium', atomicNumber: 66, state: 'Solid', group: 'Lanthanide', fact: 'Critical for wind turbine magnets' },
+    'Ho': { name: 'Holmium', atomicNumber: 67, state: 'Solid', group: 'Lanthanide', fact: 'Has the strongest magnetic properties' },
+    'Er': { name: 'Erbium', atomicNumber: 68, state: 'Solid', group: 'Lanthanide', fact: 'Used in fiber optic amplifiers' },
+    'Tm': { name: 'Thulium', atomicNumber: 69, state: 'Solid', group: 'Lanthanide', fact: 'Rarest stable rare earth element' },
+    'Yb': { name: 'Ytterbium', atomicNumber: 70, state: 'Solid', group: 'Lanthanide', fact: 'Used in atomic clocks and stress gauges' },
+    'Lu': { name: 'Lutetium', atomicNumber: 71, state: 'Solid', group: 'Lanthanide', fact: 'Hardest and densest of the rare earth elements' },
+    'Hf': { name: 'Hafnium', atomicNumber: 72, state: 'Solid', group: 'Transition Metal', fact: 'Used in nuclear reactor control rods' },
+    'Ta': { name: 'Tantalum', atomicNumber: 73, state: 'Solid', group: 'Transition Metal', fact: 'Extremely corrosion-resistant, used in capacitors' },
+    'W': { name: 'Tungsten', atomicNumber: 74, state: 'Solid', group: 'Transition Metal', fact: 'Highest melting point of all elements' },
+    'Re': { name: 'Rhenium', atomicNumber: 75, state: 'Solid', group: 'Transition Metal', fact: 'One of the rarest elements on Earth' },
+    'Os': { name: 'Osmium', atomicNumber: 76, state: 'Solid', group: 'Transition Metal', fact: 'Densest naturally occurring element' },
+    'Ir': { name: 'Iridium', atomicNumber: 77, state: 'Solid', group: 'Transition Metal', fact: 'So corrosion-resistant it\'s used in fountain pen tips' },
     'Pt': { name: 'Platinum', atomicNumber: 78, state: 'Solid', group: 'Transition Metal', fact: 'Rarer than gold and used in catalytic converters' },
+    'Au': { name: 'Gold', atomicNumber: 79, state: 'Solid', group: 'Transition Metal', fact: 'So unreactive it never tarnishes or rusts' },
     'Hg': { name: 'Mercury', atomicNumber: 80, state: 'Liquid', group: 'Transition Metal', fact: 'Only metal that\'s liquid at room temperature' },
+    'Tl': { name: 'Thallium', atomicNumber: 81, state: 'Solid', group: 'Post-transition Metal', fact: 'Highly toxic "poisoner\'s poison"' },
     'Pb': { name: 'Lead', atomicNumber: 82, state: 'Solid', group: 'Post-transition Metal', fact: 'So dense it\'s used to block radiation' },
-    'U': { name: 'Uranium', atomicNumber: 92, state: 'Solid', group: 'Actinide', fact: 'Radioactive element used in nuclear power and weapons' }
+    'Bi': { name: 'Bismuth', atomicNumber: 83, state: 'Solid', group: 'Post-transition Metal', fact: 'Forms beautiful rainbow-colored crystals' },
+    'Po': { name: 'Polonium', atomicNumber: 84, state: 'Solid', group: 'Metalloid', fact: 'Extremely radioactive, discovered by Marie Curie' },
+    'At': { name: 'Astatine', atomicNumber: 85, state: 'Solid', group: 'Halogen', fact: 'Rarest naturally occurring element' },
+    'Rn': { name: 'Radon', atomicNumber: 86, state: 'Gas', group: 'Noble Gas', fact: 'Radioactive gas that can accumulate in basements' },
+    'Fr': { name: 'Francium', atomicNumber: 87, state: 'Solid', group: 'Alkali Metal', fact: 'Most unstable of the first 101 elements' },
+    'Ra': { name: 'Radium', atomicNumber: 88, state: 'Solid', group: 'Alkaline Earth', fact: 'Glows in the dark, discovered by Marie Curie' },
+    'Ac': { name: 'Actinium', atomicNumber: 89, state: 'Solid', group: 'Actinide', fact: 'Glows blue-white in the dark due to radioactivity' },
+    'Th': { name: 'Thorium', atomicNumber: 90, state: 'Solid', group: 'Actinide', fact: 'Potential future nuclear fuel' },
+    'Pa': { name: 'Protactinium', atomicNumber: 91, state: 'Solid', group: 'Actinide', fact: 'Extremely rare radioactive element' },
+    'U': { name: 'Uranium', atomicNumber: 92, state: 'Solid', group: 'Actinide', fact: 'Radioactive element used in nuclear power and weapons' },
+    'Np': { name: 'Neptunium', atomicNumber: 93, state: 'Solid', group: 'Actinide', fact: 'First transuranium element discovered' },
+    'Pu': { name: 'Plutonium', atomicNumber: 94, state: 'Solid', group: 'Actinide', fact: 'Used in nuclear weapons and space missions' },
+    'Am': { name: 'Americium', atomicNumber: 95, state: 'Solid', group: 'Actinide', fact: 'Found in household smoke detectors' },
+    'Cm': { name: 'Curium', atomicNumber: 96, state: 'Solid', group: 'Actinide', fact: 'Named after Marie and Pierre Curie' },
+    'Bk': { name: 'Berkelium', atomicNumber: 97, state: 'Solid', group: 'Actinide', fact: 'Named after Berkeley, California' },
+    'Cf': { name: 'Californium', atomicNumber: 98, state: 'Solid', group: 'Actinide', fact: 'Used in neutron sources for oil well logging' },
+    'Es': { name: 'Einsteinium', atomicNumber: 99, state: 'Solid', group: 'Actinide', fact: 'Named after Albert Einstein' },
+    'Fm': { name: 'Fermium', atomicNumber: 100, state: 'Solid', group: 'Actinide', fact: 'Named after physicist Enrico Fermi' },
+    'Md': { name: 'Mendelevium', atomicNumber: 101, state: 'Solid', group: 'Actinide', fact: 'Named after Dmitri Mendeleev' },
+    'No': { name: 'Nobelium', atomicNumber: 102, state: 'Solid', group: 'Actinide', fact: 'Named after Alfred Nobel' },
+    'Lr': { name: 'Lawrencium', atomicNumber: 103, state: 'Solid', group: 'Actinide', fact: 'Named after Ernest Lawrence' },
+    'Rf': { name: 'Rutherfordium', atomicNumber: 104, state: 'Solid', group: 'Transition Metal', fact: 'Named after Ernest Rutherford' },
+    'Db': { name: 'Dubnium', atomicNumber: 105, state: 'Solid', group: 'Transition Metal', fact: 'Named after the city of Dubna, Russia' },
+    'Sg': { name: 'Seaborgium', atomicNumber: 106, state: 'Solid', group: 'Transition Metal', fact: 'Named after Glenn T. Seaborg' },
+    'Bh': { name: 'Bohrium', atomicNumber: 107, state: 'Solid', group: 'Transition Metal', fact: 'Named after physicist Niels Bohr' },
+    'Hs': { name: 'Hassium', atomicNumber: 108, state: 'Solid', group: 'Transition Metal', fact: 'Named after the German state of Hesse' },
+    'Mt': { name: 'Meitnerium', atomicNumber: 109, state: 'Solid', group: 'Transition Metal', fact: 'Named after physicist Lise Meitner' },
+    'Ds': { name: 'Darmstadtium', atomicNumber: 110, state: 'Solid', group: 'Transition Metal', fact: 'Named after the city of Darmstadt, Germany' },
+    'Rg': { name: 'Roentgenium', atomicNumber: 111, state: 'Solid', group: 'Transition Metal', fact: 'Named after Wilhelm Röntgen' },
+    'Cn': { name: 'Copernicium', atomicNumber: 112, state: 'Solid', group: 'Transition Metal', fact: 'Named after astronomer Nicolaus Copernicus' },
+    'Nh': { name: 'Nihonium', atomicNumber: 113, state: 'Solid', group: 'Post-transition Metal', fact: 'Named after Japan (Nihon in Japanese)' },
+    'Fl': { name: 'Flerovium', atomicNumber: 114, state: 'Solid', group: 'Post-transition Metal', fact: 'Named after physicist Georgy Flyorov' },
+    'Mc': { name: 'Moscovium', atomicNumber: 115, state: 'Solid', group: 'Post-transition Metal', fact: 'Named after Moscow, Russia' },
+    'Lv': { name: 'Livermorium', atomicNumber: 116, state: 'Solid', group: 'Post-transition Metal', fact: 'Named after Lawrence Livermore National Laboratory' },
+    'Ts': { name: 'Tennessine', atomicNumber: 117, state: 'Solid', group: 'Halogen', fact: 'Named after the state of Tennessee' },
+    'Og': { name: 'Oganesson', atomicNumber: 118, state: 'Gas', group: 'Noble Gas', fact: 'Named after physicist Yuri Oganessian' }
 };
 
 // Function to get element information
@@ -544,74 +633,6 @@ function getElementInfo(symbol) {
     return element;
 }
 
-// Function to create element buttons (Discord limits us to 25 buttons per message)
-function createElementButtons(page = 0) {
-    const elementSymbols = Object.keys(elements);
-    const buttonsPerPage = 25;
-    const startIndex = page * buttonsPerPage;
-    const endIndex = Math.min(startIndex + buttonsPerPage, elementSymbols.length);
-    
-    const buttons = [];
-    let currentRow = [];
-    
-    for (let i = startIndex; i < endIndex; i++) {
-        const symbol = elementSymbols[i];
-        currentRow.push({
-            type: 2, // BUTTON
-            style: 2, // SECONDARY
-            label: symbol,
-            custom_id: `element_${symbol.toLowerCase()}`
-        });
-        
-        // Discord allows max 5 buttons per row
-        if (currentRow.length === 5 || i === endIndex - 1) {
-            buttons.push({
-                type: 1, // ACTION_ROW
-                components: currentRow
-            });
-            currentRow = [];
-        }
-    }
-    
-    // Add navigation buttons if needed
-    const totalPages = Math.ceil(elementSymbols.length / buttonsPerPage);
-    if (totalPages > 1) {
-        const navRow = [];
-        
-        if (page > 0) {
-            navRow.push({
-                type: 2,
-                style: 1, // PRIMARY
-                label: '⬅️ Previous',
-                custom_id: `periodic_prev_${page - 1}`
-            });
-        }
-        
-        navRow.push({
-            type: 2,
-            style: 4, // DANGER
-            label: `Page ${page + 1}/${totalPages}`,
-            custom_id: 'periodic_page_info',
-            disabled: true
-        });
-        
-        if (page < totalPages - 1) {
-            navRow.push({
-                type: 2,
-                style: 1, // PRIMARY
-                label: 'Next ➡️',
-                custom_id: `periodic_next_${page + 1}`
-            });
-        }
-        
-        buttons.push({
-            type: 1,
-            components: navRow
-        });
-    }
-    
-    return buttons;
-}
 
 // Function to get weather data from Open-Meteo API
 async function getWeatherData(latitude, longitude) {
@@ -753,12 +774,6 @@ const commands = [
                 required: true
             }
         ]
-    },
-    {
-        name: 'periodictable',
-        description: 'Display an interactive periodic table of elements',
-        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
-        contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
     }
 ];
 
@@ -1184,7 +1199,7 @@ client.on('interactionCreate', async interaction => {
                         inline: false
                     }
                 )
-                .setFooter({ text: 'Interactive Periodic Table • Click elements to explore!' })
+                .setFooter({ text: 'Chemical Element Information' })
                 .setTimestamp();
             
             await interaction.reply({ embeds: [embed] });
@@ -1206,111 +1221,6 @@ client.on('interactionCreate', async interaction => {
             } catch {
                 console.error('Failed to send error message to user');
             }
-        }
-    } else if (commandName === 'periodictable') {
-        try {
-            // Create periodic table embed
-            const embed = new EmbedBuilder()
-                .setTitle('🧪 Interactive Periodic Table')
-                .setDescription('Click any element button below to learn more about it!')
-                .setColor(0x4A90E2)
-                .setImage('attachment://periodic_table.png')
-                .setFooter({ text: 'Explore the elements • Click buttons to get detailed information' });
-            
-            // Get the first page of element buttons
-            const components = createElementButtons(0);
-            
-            await interaction.reply({
-                embeds: [embed],
-                components: components
-            });
-            
-            const location = interaction.guild ? interaction.guild.name : 'DM';
-            console.log(`Periodic table command used by ${interaction.user.tag} in ${location}`);
-            
-        } catch (error) {
-            console.error('Error in periodictable command:', error);
-            try {
-                await interaction.reply({
-                    content: 'Sorry, something went wrong while loading the periodic table!',
-                    ephemeral: true
-                });
-            } catch {
-                console.error('Failed to send error message to user');
-            }
-        }
-    }
-});
-
-// Handle button interactions
-client.on('interactionCreate', async interaction => {
-    if (!interaction.isButton()) return;
-    
-    try {
-        if (interaction.customId.startsWith('element_')) {
-            // Extract element symbol from custom_id
-            const symbol = interaction.customId.replace('element_', '').toUpperCase();
-            const element = getElementInfo(symbol);
-            
-            // Create element info embed
-            const embed = new EmbedBuilder()
-                .setTitle(`🧪 ${element.name} (${symbol})`)
-                .setColor(0x4A90E2)
-                .addFields(
-                    {
-                        name: '⚛️ Atomic Number',
-                        value: element.atomicNumber.toString(),
-                        inline: true
-                    },
-                    {
-                        name: '🏷️ Symbol',
-                        value: symbol,
-                        inline: true
-                    },
-                    {
-                        name: '🌡️ State',
-                        value: element.state,
-                        inline: true
-                    },
-                    {
-                        name: '📊 Group',
-                        value: element.group,
-                        inline: false
-                    },
-                    {
-                        name: '💡 Fun Fact',
-                        value: element.fact,
-                        inline: false
-                    }
-                )
-                .setFooter({ text: `Requested by ${interaction.user.displayName} • Interactive Periodic Table` })
-                .setTimestamp();
-            
-            await interaction.reply({ embeds: [embed], ephemeral: true });
-            
-        } else if (interaction.customId.startsWith('periodic_')) {
-            // Handle pagination
-            if (interaction.customId.startsWith('periodic_next_')) {
-                const page = parseInt(interaction.customId.replace('periodic_next_', ''));
-                const components = createElementButtons(page);
-                
-                await interaction.update({ components: components });
-            } else if (interaction.customId.startsWith('periodic_prev_')) {
-                const page = parseInt(interaction.customId.replace('periodic_prev_', ''));
-                const components = createElementButtons(page);
-                
-                await interaction.update({ components: components });
-            }
-        }
-    } catch (error) {
-        console.error('Error handling button interaction:', error);
-        try {
-            await interaction.reply({
-                content: 'Sorry, something went wrong!',
-                ephemeral: true
-            });
-        } catch {
-            console.error('Failed to send error message');
         }
     }
 });
