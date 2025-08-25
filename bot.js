@@ -485,193 +485,145 @@ function getColorHex(colorName) {
     return colors[colorName] || 0x228B22;
 }
 
-// Function to get saint image with reliable fallbacks
+// Function to get saint image using Bing Images scraping
 async function getSaintImage(saintName) {
-    console.log(`Searching for saint image: ${saintName}`);
+    console.log(`Searching Bing Images for saint: ${saintName}`);
     
-    // Multiple reliable fallback images for popular saints with backup options
-    const saintImages = {
-        'Louis IX': [
-            'https://upload.wikimedia.org/wikipedia/commons/f/f8/El_Greco_-_Saint_Louis%2C_King_of_France%2C_and_a_Page_-_Google_Art_Project.jpg',
-            'https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Louis_IX_of_France.jpg/512px-Louis_IX_of_France.jpg',
-            'https://images.fineartamerica.com/images/artworkimages/mediumlarge/1/saint-louis-ix-king-of-france-granger.jpg',
-            'https://catholicexchange.com/wp-content/uploads/2015/08/Saint-Louis-IX.jpg'
-        ],
-        'Louis': [
-            'https://upload.wikimedia.org/wikipedia/commons/f/f8/El_Greco_-_Saint_Louis%2C_King_of_France%2C_and_a_Page_-_Google_Art_Project.jpg',
-            'https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Louis_IX_of_France.jpg/512px-Louis_IX_of_France.jpg',
-            'https://images.fineartamerica.com/images/artworkimages/mediumlarge/1/saint-louis-ix-king-of-france-granger.jpg'
-        ],
-        'Augustine': [
-            'https://upload.wikimedia.org/wikipedia/commons/c/c8/Sandro_Botticelli_050.jpg',
-            'https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Saint_Augustine_by_Philippe_de_Champaigne.jpg/512px-Saint_Augustine_by_Philippe_de_Champaigne.jpg',
-            'https://images.fineartamerica.com/images-medium-large-5/saint-augustine-carlo-crivelli.jpg'
-        ],
-        'Monica': [
-            'https://upload.wikimedia.org/wikipedia/commons/8/8a/Saint_Monica_by_Antonio_de_Pereda.jpg',
-            'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Ary_Scheffer_-_Saint_Monica_and_Saint_Augustine.jpg/512px-Ary_Scheffer_-_Saint_Monica_and_Saint_Augustine.jpg',
-            'https://images.fineartamerica.com/images-medium-large-5/saint-monica-simon-vouet.jpg'
-        ],
-        'John Vianney': [
-            'https://upload.wikimedia.org/wikipedia/commons/e/e3/Jean-Baptiste-Marie_Vianney.jpg',
-            'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Saint_John_Vianney.jpg/512px-Saint_John_Vianney.jpg',
-            'https://images.fineartamerica.com/images-medium-large-5/saint-john-vianney-cure-dars-louis-janmot.jpg'
-        ],
-        'Dominic': [
-            'https://upload.wikimedia.org/wikipedia/commons/9/9a/El_Greco_-_Saint_Dominic_-_Google_Art_Project.jpg',
-            'https://upload.wikimedia.org/wikipedia/commons/thumb/4/42/Fra_Angelico_-_Saint_Dominic.jpg/512px-Fra_Angelico_-_Saint_Dominic.jpg',
-            'https://images.fineartamerica.com/images-medium-large-5/saint-dominic-el-greco.jpg'
-        ],
-        'Clare': [
-            'https://upload.wikimedia.org/wikipedia/commons/f/f6/Simone_Martini_-_Saint_Clare_of_Assisi_-_Google_Art_Project.jpg',
-            'https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/Santa_Clara_de_Asis.jpg/512px-Santa_Clara_de_Asis.jpg',
-            'https://images.fineartamerica.com/images-medium-large-5/saint-clare-of-assisi-master-of-the-saint-clare-dossal.jpg'
-        ],
-        'Lawrence': [
-            'https://upload.wikimedia.org/wikipedia/commons/8/8a/Titian_-_The_Martyrdom_of_Saint_Lawrence_-_Google_Art_Project.jpg',
-            'https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Jusepe_de_Ribera_-_Saint_Lawrence.jpg/512px-Jusepe_de_Ribera_-_Saint_Lawrence.jpg',
-            'https://images.fineartamerica.com/images-medium-large-5/saint-lawrence-guido-reni.jpg'
-        ],
-        'Bartholomew': [
-            'https://upload.wikimedia.org/wikipedia/commons/e/e7/Jusepe_de_Ribera_-_Saint_Bartholomew_-_Google_Art_Project.jpg',
-            'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Michelangelo_Caravaggio_-_Saint_Bartholomew.jpg/512px-Michelangelo_Caravaggio_-_Saint_Bartholomew.jpg',
-            'https://images.fineartamerica.com/images-medium-large-5/saint-bartholomew-jusepe-de-ribera.jpg'
-        ],
-        'Bernard': [
-            'https://upload.wikimedia.org/wikipedia/commons/c/c1/Francisco_de_Zurbar%C3%A1n_-_Saint_Bernard_of_Clairvaux_-_Google_Art_Project.jpg',
-            'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Saint_Bernard_of_Clairvaux.jpg/512px-Saint_Bernard_of_Clairvaux.jpg',
-            'https://images.fineartamerica.com/images-medium-large-5/saint-bernard-of-clairvaux-francisco-de-zurbaran.jpg'
-        ],
-        'Maximilian Kolbe': [
-            'https://upload.wikimedia.org/wikipedia/commons/1/12/Maximilian_Kolbe_1936.jpg',
-            'https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/Saint_Maximilian_Kolbe.jpg/512px-Saint_Maximilian_Kolbe.jpg',
-            'https://images.fineartamerica.com/images-medium-large-5/saint-maximilian-kolbe-portrait.jpg'
-        ],
-        'Pius X': [
-            'https://upload.wikimedia.org/wikipedia/commons/d/d4/Pope_Pius_X.jpg',
-            'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Pope_Saint_Pius_X.jpg/512px-Pope_Saint_Pius_X.jpg',
-            'https://images.fineartamerica.com/images-medium-large-5/pope-saint-pius-x-portrait.jpg'
-        ]
-    };
-    
-    // Check direct match first (highest priority) - try each URL until one works
-    if (saintImages[saintName]) {
-        console.log(`Found saint image options for ${saintName}, testing URLs...`);
-        for (const imageUrl of saintImages[saintName]) {
-            try {
-                // Quick HEAD request to test if URL is accessible
-                const testResponse = await axios.head(imageUrl, { timeout: 3000 });
-                if (testResponse.status === 200) {
-                    console.log(`Working saint image found for ${saintName}: ${imageUrl}`);
-                    return imageUrl;
-                }
-            } catch (e) {
-                console.log(`URL failed for ${saintName}: ${imageUrl}`);
-                continue;
-            }
-        }
-        // If all URLs failed, return the first one anyway (Discord might still display it)
-        console.log(`All URLs failed for ${saintName}, using first option: ${saintImages[saintName][0]}`);
-        return saintImages[saintName][0];
-    }
-    
-    // Check first name match
-    const firstName = saintName.split(' ')[0];
-    if (saintImages[firstName]) {
-        console.log(`Found saint image options by first name for ${firstName}, testing URLs...`);
-        for (const imageUrl of saintImages[firstName]) {
-            try {
-                const testResponse = await axios.head(imageUrl, { timeout: 3000 });
-                if (testResponse.status === 200) {
-                    console.log(`Working saint image found by first name for ${firstName}: ${imageUrl}`);
-                    return imageUrl;
-                }
-            } catch (e) {
-                console.log(`URL failed for ${firstName}: ${imageUrl}`);
-                continue;
-            }
-        }
-        // If all URLs failed, return the first one anyway
-        console.log(`All URLs failed for ${firstName}, using first option: ${saintImages[firstName][0]}`);
-        return saintImages[firstName][0];
-    }
-    
-    // Try improved Google Images scraping with multiple strategies
     try {
-        console.log(`Trying Google Images for saint: ${saintName}`);
-        
-        // Build multiple search queries for better results
+        // Try multiple Bing search strategies
         const searchQueries = [
-            `"Saint ${saintName}" painting portrait catholic`,
-            `"St ${saintName}" art religious icon`,
-            `${saintName} saint catholic church artwork`
+            `"Saint ${saintName}" painting portrait catholic art`,
+            `"St ${saintName}" religious icon artwork`,
+            `${saintName} saint catholic church painting`,
+            `Saint ${saintName} medieval art religious painting`
         ];
         
         for (const query of searchQueries) {
+            console.log(`Trying Bing search: ${query}`);
             const encodedQuery = encodeURIComponent(query);
-            const googleImagesUrl = `https://www.google.com/search?tbm=isch&q=${encodedQuery}&safe=active`;
+            const bingImagesUrl = `https://www.bing.com/images/search?q=${encodedQuery}&form=HDRSC2&first=1&tsc=ImageBasicHover`;
             
             try {
-                const response = await axios.get(googleImagesUrl, {
+                const response = await axios.get(bingImagesUrl, {
                     headers: {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                         'Accept-Language': 'en-US,en;q=0.9',
-                        'Referer': 'https://www.google.com/'
+                        'Referer': 'https://www.bing.com/',
+                        'Cache-Control': 'no-cache'
                     },
-                    timeout: 8000
+                    timeout: 10000
                 });
 
-                // Try multiple regex patterns for different Google Images formats
-                const patterns = [
-                    /"ou":"([^"]+)"/g,
-                    /"https?:\/\/[^"]*\.(?:jpg|jpeg|png|webp)[^"]*"/g,
+                // Parse Bing Images response for image URLs
+                const html = response.data;
+                const imageMatches = [];
+                
+                // Multiple regex patterns for Bing Images
+                const bingPatterns = [
+                    /"murl":"([^"]+)"/g,
+                    /"turl":"([^"]+)"/g,
+                    /m=\{[^}]*"murl":"([^"]+)"/g,
                     /data-src="([^"]*\.(?:jpg|jpeg|png|webp)[^"]*)"/g,
                     /"(https?:\/\/[^"]*\.(?:jpg|jpeg|png|webp))"/g
                 ];
                 
-                for (const pattern of patterns) {
-                    const matches = [];
+                for (const pattern of bingPatterns) {
                     let match;
-                    
-                    while ((match = pattern.exec(response.data)) !== null && matches.length < 8) {
-                        let imageUrl = match[1] || match[0].replace(/['"]/g, '');
+                    while ((match = pattern.exec(html)) !== null && imageMatches.length < 15) {
+                        let imageUrl = match[1];
                         
-                        // Better filtering for quality images
-                        if (imageUrl.startsWith('http') && 
-                            !imageUrl.includes('.gif') && 
-                            !imageUrl.includes('icon') && 
-                            !imageUrl.includes('logo') &&
-                            !imageUrl.includes('thumb') &&
-                            !imageUrl.includes('avatar') &&
-                            imageUrl.length > 60 &&
-                            (imageUrl.includes('catholic') || 
-                             imageUrl.includes('saint') || 
-                             imageUrl.includes('art') || 
-                             imageUrl.includes('painting') ||
-                             imageUrl.includes('religious'))) {
+                        if (imageUrl && imageUrl.startsWith('http')) {
+                            // Decode URL if needed
+                            try {
+                                imageUrl = decodeURIComponent(imageUrl);
+                            } catch (e) {
+                                // If decode fails, use original
+                            }
                             
-                            const decodedUrl = decodeURIComponent(imageUrl);
-                            matches.push(decodedUrl);
+                            // Filter for good quality images
+                            if (!imageUrl.includes('.gif') && 
+                                !imageUrl.includes('icon') && 
+                                !imageUrl.includes('logo') &&
+                                !imageUrl.includes('avatar') &&
+                                !imageUrl.includes('thumbnail') &&
+                                imageUrl.length > 40 &&
+                                (imageUrl.includes('.jpg') || imageUrl.includes('.jpeg') || imageUrl.includes('.png') || imageUrl.includes('.webp'))) {
+                                
+                                imageMatches.push(imageUrl);
+                            }
                         }
                     }
-                    
-                    if (matches.length > 0) {
-                        console.log(`Found Google Images result for ${saintName}: ${matches[0]}`);
-                        return matches[0];
+                }
+                
+                // Test found URLs and return the first working one
+                for (const imageUrl of imageMatches) {
+                    try {
+                        // Quick test to see if URL is accessible
+                        const testResponse = await axios.head(imageUrl, { 
+                            timeout: 4000,
+                            headers: {
+                                'User-Agent': 'Mozilla/5.0 (compatible; bot/1.0)'
+                            }
+                        });
+                        
+                        if (testResponse.status === 200) {
+                            console.log(`Found working Bing image for ${saintName}: ${imageUrl}`);
+                            return imageUrl;
+                        }
+                    } catch (testError) {
+                        console.log(`Image URL test failed: ${imageUrl.substring(0, 80)}...`);
+                        continue;
                     }
                 }
-            } catch (queryError) {
-                console.log(`Query "${query}" failed: ${queryError.message}`);
-                continue; // Try next query
+                
+                // If no URLs worked but we found some, return the first one (Discord might still load it)
+                if (imageMatches.length > 0) {
+                    console.log(`No URLs tested successfully, trying first Bing result: ${imageMatches[0]}`);
+                    return imageMatches[0];
+                }
+                
+            } catch (searchError) {
+                console.log(`Bing search failed for query "${query}": ${searchError.message}`);
+                continue; // Try next search query
             }
         }
         
-    } catch (googleError) {
-        console.log(`Google Images search failed for ${saintName}: ${googleError.message}`);
+        // If Bing fails, try DuckDuckGo as backup
+        console.log(`Bing failed, trying DuckDuckGo for: ${saintName}`);
+        const duckQuery = encodeURIComponent(`"Saint ${saintName}" painting portrait`);
+        const duckUrl = `https://duckduckgo.com/?q=${duckQuery}&t=h_&iax=images&ia=images`;
+        
+        try {
+            const duckResponse = await axios.get(duckUrl, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                },
+                timeout: 8000
+            });
+            
+            // Simple pattern for DuckDuckGo images
+            const duckPattern = /"image":"([^"]+)"/g;
+            let duckMatch;
+            
+            while ((duckMatch = duckPattern.exec(duckResponse.data)) !== null) {
+                const imageUrl = decodeURIComponent(duckMatch[1]);
+                if (imageUrl.startsWith('http') && 
+                    (imageUrl.includes('.jpg') || imageUrl.includes('.jpeg') || imageUrl.includes('.png'))) {
+                    console.log(`Found DuckDuckGo image for ${saintName}: ${imageUrl}`);
+                    return imageUrl;
+                }
+            }
+        } catch (duckError) {
+            console.log(`DuckDuckGo search also failed: ${duckError.message}`);
+        }
+        
+    } catch (error) {
+        console.error(`Overall image search failed for ${saintName}: ${error.message}`);
     }
     
-    console.log(`No image found for saint: ${saintName}`);
+    console.log(`No suitable saint image found for: ${saintName}`);
     return null;
 }
 
