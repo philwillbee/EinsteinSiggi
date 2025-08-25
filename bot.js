@@ -300,7 +300,25 @@ async function getCatholicLiturgicalData() {
             
             if (czechResponse.data && czechResponse.data.celebrations && czechResponse.data.celebrations.length > 0) {
                 const celebration = czechResponse.data.celebrations[0];
-                let saintName = celebration.title || '';
+                const originalTitle = celebration.title || '';
+                
+                // Check if this is just a generic liturgical date (not a saint)
+                const isGenericLiturgical = originalTitle.includes('week') && 
+                                          (originalTitle.includes('Ordinary Time') || 
+                                           originalTitle.includes('Monday') || 
+                                           originalTitle.includes('Tuesday') || 
+                                           originalTitle.includes('Wednesday') || 
+                                           originalTitle.includes('Thursday') || 
+                                           originalTitle.includes('Friday') || 
+                                           originalTitle.includes('Saturday'));
+                
+                // If it's generic liturgical info, skip to our hardcoded saints calendar
+                if (isGenericLiturgical) {
+                    console.log('Czech API returned generic liturgical info, falling back to saints calendar');
+                    throw new Error('Generic liturgical info, use fallback');
+                }
+                
+                let saintName = originalTitle;
                 let saintDescription = '';
                 let patronOf = 'various causes';
                 let liturgicalColor = 'green';
@@ -346,8 +364,11 @@ async function getCatholicLiturgicalData() {
             console.log('Czech API failed, trying alternatives...', czechError.message);
         }
         
-        // Fallback to comprehensive authentic Catholic saints calendar
+        // Fallback to comprehensive authentic Catholic saints calendar based on Universalis.com
         const saintsByDate = {
+            // January saints
+            '01-25': { name: 'The Conversion of Saint Paul, Apostle', patron: 'missionaries and writers', color: 'white', desc: 'Feast celebrating the conversion of Saint Paul on the road to Damascus.' },
+            
             // August saints
             '08-01': { name: 'Alphonsus Liguori', patron: 'confessors and moral theologians', color: 'white', desc: 'Doctor of the Church, founder of the Redemptorists, and patron of confessors and moral theologians.' },
             '08-02': { name: 'Eusebius of Vercelli', patron: 'clergy', color: 'white', desc: 'Bishop who defended the divinity of Christ against Arianism.' },
@@ -369,7 +390,7 @@ async function getCatholicLiturgicalData() {
             '08-22': { name: 'Queenship of the Blessed Virgin Mary', patron: 'all creation', color: 'white', desc: 'Celebrating Mary as Queen of Heaven and Earth.' },
             '08-23': { name: 'Rose of Lima', patron: 'Latin America', color: 'white', desc: 'First saint of the Americas, Dominican tertiary known for her severe penances.' },
             '08-24': { name: 'Bartholomew', patron: 'tanners', color: 'red', desc: 'Apostle, also known as Nathanael, patron of tanners and plasterers.' },
-            '08-25': { name: 'Louis', patron: 'France', color: 'white', desc: 'King Louis IX of France, model of Christian kingship.' },
+            '08-25': { name: 'Louis IX', patron: 'France and crusaders', color: 'white', desc: 'King Louis IX of France, model of Christian kingship, led the Seventh and Eighth Crusades.' },
             '08-27': { name: 'Monica', patron: 'mothers', color: 'white', desc: 'Mother of Saint Augustine, patron of mothers and wives.' },
             '08-28': { name: 'Augustine', patron: 'theologians', color: 'white', desc: 'Bishop of Hippo, Doctor of the Church, author of Confessions and City of God.' },
             '08-29': { name: 'Passion of Saint John the Baptist', patron: 'baptism', color: 'red', desc: 'Commemorating the martyrdom of John the Baptist.' }
