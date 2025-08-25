@@ -472,6 +472,94 @@ async function getSaintImage(saintName) {
     return null;
 }
 
+// Function to get UK politics news
+async function getUKPoliticsNews() {
+    try {
+        // Use BBC UK RSS feed for politics news
+        const rssUrl = 'http://feeds.bbci.co.uk/news/uk/rss.xml';
+        
+        const response = await axios.get(rssUrl, {
+            headers: {
+                'User-Agent': 'SiggiBot/1.0 Discord News Bot'
+            }
+        });
+        
+        // Parse the RSS XML using cheerio
+        const $ = cheerio.load(response.data, { xmlMode: true });
+        
+        const articles = [];
+        $('item').slice(0, 5).each((index, element) => {
+            const title = $(element).find('title').text();
+            const description = $(element).find('description').text();
+            const link = $(element).find('link').text();
+            const pubDate = $(element).find('pubDate').text();
+            
+            // Filter for politics-related articles
+            if (title.toLowerCase().includes('politics') || 
+                title.toLowerCase().includes('government') || 
+                title.toLowerCase().includes('parliament') ||
+                title.toLowerCase().includes('minister') ||
+                title.toLowerCase().includes('mp ') ||
+                title.toLowerCase().includes('labour') ||
+                title.toLowerCase().includes('conservative') ||
+                title.toLowerCase().includes('starmer') ||
+                title.toLowerCase().includes('sunak') ||
+                description.toLowerCase().includes('politics') ||
+                description.toLowerCase().includes('government')) {
+                
+                articles.push({
+                    title: title.trim(),
+                    description: description.replace(/<[^>]*>/g, '').trim().slice(0, 200), // Remove HTML and limit length
+                    link: link.trim(),
+                    pubDate: new Date(pubDate).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })
+                });
+            }
+        });
+        
+        // If no politics articles found, get general UK news
+        if (articles.length === 0) {
+            $('item').slice(0, 3).each((index, element) => {
+                const title = $(element).find('title').text();
+                const description = $(element).find('description').text();
+                const link = $(element).find('link').text();
+                const pubDate = $(element).find('pubDate').text();
+                
+                articles.push({
+                    title: title.trim(),
+                    description: description.replace(/<[^>]*>/g, '').trim().slice(0, 200),
+                    link: link.trim(),
+                    pubDate: new Date(pubDate).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })
+                });
+            });
+        }
+        
+        return articles;
+        
+    } catch (error) {
+        console.error('Error fetching UK politics news:', error);
+        
+        // Fallback with sample data structure
+        return [{
+            title: 'UK Politics News Currently Unavailable',
+            description: 'Sorry, we are currently unable to fetch the latest UK politics news. Please try again later.',
+            link: 'https://www.bbc.co.uk/news/politics',
+            pubDate: new Date().toLocaleDateString('en-GB')
+        }];
+    }
+}
+
 // Function to get coordinates for a location using geocoding
 async function getLocationCoordinates(locationName) {
     try {
@@ -774,6 +862,12 @@ const commands = [
                 required: true
             }
         ]
+    },
+    {
+        name: 'yookay',
+        description: 'Get the latest UK politics news from BBC',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
     }
 ];
 
@@ -1272,6 +1366,49 @@ client.on('interactionCreate', async interaction => {
                 await interaction.reply({
                     content: errorMessage,
                     ephemeral: true
+                });
+            } catch {
+                console.error('Failed to send error message to user');
+            }
+        }
+    } else if (commandName === 'yookay') {
+        try {
+            // Defer the response for longer processing time
+            await interaction.deferReply();
+            
+            // Get UK politics news
+            const articles = await getUKPoliticsNews();
+            
+            // Create embed with news articles
+            const embed = new EmbedBuilder()
+                .setTitle('🇬🇧 Latest UK Politics News')
+                .setDescription('Fresh political news from the BBC')
+                .setColor(0xB31942) // UK flag red color
+                .setFooter({ text: `Requested by ${interaction.user.displayName} • Source: BBC News` })
+                .setTimestamp();
+            
+            // Add news articles as fields (max 3 to fit in embed)
+            articles.slice(0, 3).forEach((article, index) => {
+                embed.addFields({
+                    name: `📰 ${article.title}`,
+                    value: `${article.description}\n\n[Read more](${article.link}) • ${article.pubDate}`,
+                    inline: false
+                });
+            });
+            
+            // Add thumbnail
+            embed.setThumbnail('https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Flag_of_the_United_Kingdom.svg/1200px-Flag_of_the_United_Kingdom.svg.png');
+            
+            await interaction.editReply({ embeds: [embed] });
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`YooKay command used by ${interaction.user.tag} in ${location} - Found ${articles.length} articles`);
+            
+        } catch (error) {
+            console.error('Error in yookay command:', error);
+            try {
+                await interaction.editReply({
+                    content: 'Sorry, something went wrong while getting UK politics news! 🇬🇧',
                 });
             } catch {
                 console.error('Failed to send error message to user');
