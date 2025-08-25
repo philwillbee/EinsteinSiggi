@@ -485,9 +485,9 @@ function getColorHex(colorName) {
     return colors[colorName] || 0x228B22;
 }
 
-// Function to get saint image - simple Google Images first result
+// Function to get saint image - filter out Google UI elements
 async function getSaintImage(saintName) {
-    console.log(`Getting first Google Images result for: ${saintName}`);
+    console.log(`Getting saint image for: ${saintName}`);
     
     try {
         const searchQuery = `Saint ${saintName} painting portrait`;
@@ -505,34 +505,62 @@ async function getSaintImage(saintName) {
             timeout: 8000
         });
 
-        // Find the very first image URL in the Google Images results
         const html = response.data;
         
-        // Look for the main image URL pattern used by Google Images
-        const imagePattern = /"ou":"([^"]+)"/;
-        const match = html.match(imagePattern);
+        // Find all "ou" (original URL) patterns from Google Images
+        const imagePattern = /"ou":"([^"]+)"/g;
+        const matches = [];
+        let match;
         
-        if (match && match[1]) {
+        while ((match = imagePattern.exec(html)) !== null && matches.length < 10) {
             const imageUrl = decodeURIComponent(match[1]);
-            console.log(`Found first Google Images result for ${saintName}: ${imageUrl}`);
-            return imageUrl;
+            
+            // Filter out Google's own URLs and UI elements
+            if (imageUrl && 
+                imageUrl.startsWith('http') &&
+                !imageUrl.includes('gstatic.com') &&
+                !imageUrl.includes('googleusercontent.com') &&
+                !imageUrl.includes('google.com') &&
+                !imageUrl.includes('icon') &&
+                !imageUrl.includes('logo') &&
+                !imageUrl.includes('thumbnail') &&
+                imageUrl.length > 50 &&
+                (imageUrl.includes('.jpg') || imageUrl.includes('.jpeg') || imageUrl.includes('.png') || imageUrl.includes('.webp'))) {
+                
+                matches.push(imageUrl);
+            }
         }
         
-        // Backup pattern if first doesn't work
-        const backupPattern = /"(https:\/\/[^"]*\.(?:jpg|jpeg|png|webp))"/;
-        const backupMatch = html.match(backupPattern);
+        if (matches.length > 0) {
+            const selectedImage = matches[0];
+            console.log(`Found filtered Google Images result for ${saintName}: ${selectedImage}`);
+            return selectedImage;
+        }
         
-        if (backupMatch && backupMatch[1]) {
-            const imageUrl = backupMatch[1];
-            console.log(`Found backup Google Images result for ${saintName}: ${imageUrl}`);
-            return imageUrl;
+        // If that fails, try a simpler pattern but still filter
+        const simplePattern = /"(https:\/\/[^"]*\.(?:jpg|jpeg|png|webp))"/g;
+        let simpleMatch;
+        
+        while ((simpleMatch = simplePattern.exec(html)) !== null) {
+            const imageUrl = simpleMatch[1];
+            
+            if (!imageUrl.includes('gstatic.com') &&
+                !imageUrl.includes('googleusercontent.com') &&
+                !imageUrl.includes('google.com') &&
+                !imageUrl.includes('icon') &&
+                !imageUrl.includes('logo') &&
+                imageUrl.length > 50) {
+                
+                console.log(`Found simple pattern result for ${saintName}: ${imageUrl}`);
+                return imageUrl;
+            }
         }
         
     } catch (error) {
         console.error(`Google Images search failed for ${saintName}: ${error.message}`);
     }
     
-    console.log(`No Google Images result found for: ${saintName}`);
+    console.log(`No suitable saint image found for: ${saintName}`);
     return null;
 }
 
