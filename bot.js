@@ -489,44 +489,111 @@ function getColorHex(colorName) {
 async function getSaintImage(saintName) {
     console.log(`Searching for saint image: ${saintName}`);
     
-    // Comprehensive fallback images for popular saints (prioritize these for reliability)
+    // Multiple reliable fallback images for popular saints with backup options
     const saintImages = {
-        'Louis IX': 'https://cdn.britannica.com/25/119325-004-45ABEEC2/Louis-IX-detail-painting.jpg',
-        'Louis': 'https://cdn.britannica.com/25/119325-004-45ABEEC2/Louis-IX-detail-painting.jpg',
-        'Augustine': 'https://cdn.britannica.com/15/196715-050-2BC2B1A9/Saint-Augustine-Sandro-Botticelli-1480.jpg',
-        'Monica': 'https://www.catholic.org/files/images/saints/monica.jpg',
-        'Alphonsus Liguori': 'https://www.catholic.org/files/images/saints/alphonsus_liguori.jpg',
-        'John Vianney': 'https://www.catholic.org/files/images/saints/john_vianney.jpg',
-        'Dominic': 'https://www.catholic.org/files/images/saints/dominic.jpg',
-        'Clare': 'https://www.catholic.org/files/images/saints/clare_of_assisi.jpg',
-        'Lawrence': 'https://www.catholic.org/files/images/saints/lawrence.jpg',
-        'Maximilian Kolbe': 'https://www.catholic.org/files/images/saints/maximilian_kolbe.jpg',
-        'Bartholomew': 'https://www.catholic.org/files/images/saints/bartholomew.jpg',
-        'Bernard': 'https://www.catholic.org/files/images/saints/bernard_of_clairvaux.jpg',
-        'Rose of Lima': 'https://www.catholic.org/files/images/saints/rose_of_lima.jpg',
-        'Teresa Benedicta of the Cross': 'https://www.catholic.org/files/images/saints/edith_stein.jpg',
-        'Pius X': 'https://www.catholic.org/files/images/saints/pius_x.jpg',
-        'Francis of Assisi': 'https://www.catholic.org/files/images/saints/francis_of_assisi.jpg',
-        'Thomas Aquinas': 'https://www.catholic.org/files/images/saints/thomas_aquinas.jpg',
-        'Anthony of Padua': 'https://www.catholic.org/files/images/saints/anthony_of_padua.jpg',
-        'Joseph': 'https://www.catholic.org/files/images/saints/joseph.jpg',
-        'Mary': 'https://www.catholic.org/files/images/saints/mary.jpg',
-        'Peter': 'https://www.catholic.org/files/images/saints/peter.jpg',
-        'Paul': 'https://www.catholic.org/files/images/saints/paul.jpg',
-        'John the Baptist': 'https://www.catholic.org/files/images/saints/john_baptist.jpg'
+        'Louis IX': [
+            'https://upload.wikimedia.org/wikipedia/commons/f/f8/El_Greco_-_Saint_Louis%2C_King_of_France%2C_and_a_Page_-_Google_Art_Project.jpg',
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Louis_IX_of_France.jpg/512px-Louis_IX_of_France.jpg',
+            'https://images.fineartamerica.com/images/artworkimages/mediumlarge/1/saint-louis-ix-king-of-france-granger.jpg',
+            'https://catholicexchange.com/wp-content/uploads/2015/08/Saint-Louis-IX.jpg'
+        ],
+        'Louis': [
+            'https://upload.wikimedia.org/wikipedia/commons/f/f8/El_Greco_-_Saint_Louis%2C_King_of_France%2C_and_a_Page_-_Google_Art_Project.jpg',
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Louis_IX_of_France.jpg/512px-Louis_IX_of_France.jpg',
+            'https://images.fineartamerica.com/images/artworkimages/mediumlarge/1/saint-louis-ix-king-of-france-granger.jpg'
+        ],
+        'Augustine': [
+            'https://upload.wikimedia.org/wikipedia/commons/c/c8/Sandro_Botticelli_050.jpg',
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Saint_Augustine_by_Philippe_de_Champaigne.jpg/512px-Saint_Augustine_by_Philippe_de_Champaigne.jpg',
+            'https://images.fineartamerica.com/images-medium-large-5/saint-augustine-carlo-crivelli.jpg'
+        ],
+        'Monica': [
+            'https://upload.wikimedia.org/wikipedia/commons/8/8a/Saint_Monica_by_Antonio_de_Pereda.jpg',
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Ary_Scheffer_-_Saint_Monica_and_Saint_Augustine.jpg/512px-Ary_Scheffer_-_Saint_Monica_and_Saint_Augustine.jpg',
+            'https://images.fineartamerica.com/images-medium-large-5/saint-monica-simon-vouet.jpg'
+        ],
+        'John Vianney': [
+            'https://upload.wikimedia.org/wikipedia/commons/e/e3/Jean-Baptiste-Marie_Vianney.jpg',
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Saint_John_Vianney.jpg/512px-Saint_John_Vianney.jpg',
+            'https://images.fineartamerica.com/images-medium-large-5/saint-john-vianney-cure-dars-louis-janmot.jpg'
+        ],
+        'Dominic': [
+            'https://upload.wikimedia.org/wikipedia/commons/9/9a/El_Greco_-_Saint_Dominic_-_Google_Art_Project.jpg',
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/4/42/Fra_Angelico_-_Saint_Dominic.jpg/512px-Fra_Angelico_-_Saint_Dominic.jpg',
+            'https://images.fineartamerica.com/images-medium-large-5/saint-dominic-el-greco.jpg'
+        ],
+        'Clare': [
+            'https://upload.wikimedia.org/wikipedia/commons/f/f6/Simone_Martini_-_Saint_Clare_of_Assisi_-_Google_Art_Project.jpg',
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/Santa_Clara_de_Asis.jpg/512px-Santa_Clara_de_Asis.jpg',
+            'https://images.fineartamerica.com/images-medium-large-5/saint-clare-of-assisi-master-of-the-saint-clare-dossal.jpg'
+        ],
+        'Lawrence': [
+            'https://upload.wikimedia.org/wikipedia/commons/8/8a/Titian_-_The_Martyrdom_of_Saint_Lawrence_-_Google_Art_Project.jpg',
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Jusepe_de_Ribera_-_Saint_Lawrence.jpg/512px-Jusepe_de_Ribera_-_Saint_Lawrence.jpg',
+            'https://images.fineartamerica.com/images-medium-large-5/saint-lawrence-guido-reni.jpg'
+        ],
+        'Bartholomew': [
+            'https://upload.wikimedia.org/wikipedia/commons/e/e7/Jusepe_de_Ribera_-_Saint_Bartholomew_-_Google_Art_Project.jpg',
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Michelangelo_Caravaggio_-_Saint_Bartholomew.jpg/512px-Michelangelo_Caravaggio_-_Saint_Bartholomew.jpg',
+            'https://images.fineartamerica.com/images-medium-large-5/saint-bartholomew-jusepe-de-ribera.jpg'
+        ],
+        'Bernard': [
+            'https://upload.wikimedia.org/wikipedia/commons/c/c1/Francisco_de_Zurbar%C3%A1n_-_Saint_Bernard_of_Clairvaux_-_Google_Art_Project.jpg',
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Saint_Bernard_of_Clairvaux.jpg/512px-Saint_Bernard_of_Clairvaux.jpg',
+            'https://images.fineartamerica.com/images-medium-large-5/saint-bernard-of-clairvaux-francisco-de-zurbaran.jpg'
+        ],
+        'Maximilian Kolbe': [
+            'https://upload.wikimedia.org/wikipedia/commons/1/12/Maximilian_Kolbe_1936.jpg',
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/Saint_Maximilian_Kolbe.jpg/512px-Saint_Maximilian_Kolbe.jpg',
+            'https://images.fineartamerica.com/images-medium-large-5/saint-maximilian-kolbe-portrait.jpg'
+        ],
+        'Pius X': [
+            'https://upload.wikimedia.org/wikipedia/commons/d/d4/Pope_Pius_X.jpg',
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Pope_Saint_Pius_X.jpg/512px-Pope_Saint_Pius_X.jpg',
+            'https://images.fineartamerica.com/images-medium-large-5/pope-saint-pius-x-portrait.jpg'
+        ]
     };
     
-    // Check direct match first (highest priority)
+    // Check direct match first (highest priority) - try each URL until one works
     if (saintImages[saintName]) {
-        console.log(`Found direct saint image for ${saintName}`);
-        return saintImages[saintName];
+        console.log(`Found saint image options for ${saintName}, testing URLs...`);
+        for (const imageUrl of saintImages[saintName]) {
+            try {
+                // Quick HEAD request to test if URL is accessible
+                const testResponse = await axios.head(imageUrl, { timeout: 3000 });
+                if (testResponse.status === 200) {
+                    console.log(`Working saint image found for ${saintName}: ${imageUrl}`);
+                    return imageUrl;
+                }
+            } catch (e) {
+                console.log(`URL failed for ${saintName}: ${imageUrl}`);
+                continue;
+            }
+        }
+        // If all URLs failed, return the first one anyway (Discord might still display it)
+        console.log(`All URLs failed for ${saintName}, using first option: ${saintImages[saintName][0]}`);
+        return saintImages[saintName][0];
     }
     
     // Check first name match
     const firstName = saintName.split(' ')[0];
     if (saintImages[firstName]) {
-        console.log(`Found saint image by first name for ${firstName}`);
-        return saintImages[firstName];
+        console.log(`Found saint image options by first name for ${firstName}, testing URLs...`);
+        for (const imageUrl of saintImages[firstName]) {
+            try {
+                const testResponse = await axios.head(imageUrl, { timeout: 3000 });
+                if (testResponse.status === 200) {
+                    console.log(`Working saint image found by first name for ${firstName}: ${imageUrl}`);
+                    return imageUrl;
+                }
+            } catch (e) {
+                console.log(`URL failed for ${firstName}: ${imageUrl}`);
+                continue;
+            }
+        }
+        // If all URLs failed, return the first one anyway
+        console.log(`All URLs failed for ${firstName}, using first option: ${saintImages[firstName][0]}`);
+        return saintImages[firstName][0];
     }
     
     // Try improved Google Images scraping with multiple strategies
