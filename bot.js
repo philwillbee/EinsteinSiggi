@@ -472,6 +472,78 @@ async function getSaintImage(saintName) {
     return null;
 }
 
+// Function to generate cyberscan data for a user
+function generateCyberScan(user) {
+    // Generate deterministic "random" values based on user ID for consistency
+    const seed = parseInt(user.id.slice(-8), 16);
+    const rng = (n) => (seed * 9301 + 49297 + n * 233280) % 233280 / 233280;
+    
+    // Energy levels (10-100%)
+    const energyLevel = Math.floor(rng(1) * 91) + 10;
+    
+    // Cybernetic enhancement level (0-5)
+    const cyberLevel = Math.floor(rng(2) * 6);
+    
+    // Threat assessment (1-10)
+    const threatLevel = Math.floor(rng(3) * 10) + 1;
+    
+    // Biometric readings
+    const heartRate = Math.floor(rng(4) * 60) + 60; // 60-120 bpm
+    const bodyTemp = (rng(5) * 2 + 36.5).toFixed(1); // 36.5-38.5°C
+    const brainActivity = Math.floor(rng(6) * 40) + 60; // 60-100%
+    
+    // Random cybernetic implants
+    const implants = [
+        'Neural Interface Module', 'Optical Enhancement Array', 'Cardiac Regulator',
+        'Memory Augmentation Chip', 'Reflexive Response Booster', 'Atmospheric Processor',
+        'Subdermal Armor Plating', 'Synthetic Muscle Fibers', 'Quantum Processing Unit',
+        'Bio-mechanical Spine', 'Enhanced Lung Capacity', 'Temporal Perception Modifier',
+        'Electromagnetic Shielding', 'Advanced Liver Filter', 'Synthetic Blood Cells'
+    ];
+    
+    const installedImplants = [];
+    for (let i = 0; i < cyberLevel; i++) {
+        const implantIndex = Math.floor(rng(10 + i) * implants.length);
+        if (!installedImplants.includes(implants[implantIndex])) {
+            installedImplants.push(implants[implantIndex]);
+        }
+    }
+    
+    // Random weaknesses
+    const weaknesses = [
+        'Electromagnetic Interference Susceptible', 'Requires Regular Maintenance Cycles',
+        'Limited Battery Life (Solar Dependent)', 'Vulnerable to Quantum Disruption',
+        'Heat Signature Easily Detected', 'Neural Pattern Recognition Bypass',
+        'Susceptible to Sonic Frequencies', 'Requires Daily Nutrient Supplementation',
+        'Memory Core Fragmentation Risk', 'Optical System Light Sensitivity',
+        'Chemical Agent Vulnerability', 'Radiation Exposure Intolerance'
+    ];
+    
+    const detectedWeaknesses = [];
+    const numWeaknesses = Math.min(Math.floor(rng(20) * 3) + 1, 3);
+    for (let i = 0; i < numWeaknesses; i++) {
+        const weaknessIndex = Math.floor(rng(30 + i) * weaknesses.length);
+        if (!detectedWeaknesses.includes(weaknesses[weaknessIndex])) {
+            detectedWeaknesses.push(weaknesses[weaknessIndex]);
+        }
+    }
+    
+    // Scan completion percentage (always 100% but shows progress effect)
+    const scanProgress = 100;
+    
+    return {
+        energyLevel,
+        cyberLevel,
+        threatLevel,
+        heartRate,
+        bodyTemp,
+        brainActivity,
+        installedImplants,
+        detectedWeaknesses,
+        scanProgress
+    };
+}
+
 // Function to get UK politics news
 async function getUKPoliticsNews() {
     try {
@@ -876,6 +948,20 @@ const commands = [
         description: 'Get the latest UK politics news from BBC',
         integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
         contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
+    },
+    {
+        name: 'cyberscan',
+        description: 'Run a futuristic biometric scan on a user',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'target',
+                type: 6, // USER type
+                description: 'The user to scan',
+                required: true
+            }
+        ]
     }
 ];
 
@@ -1428,6 +1514,88 @@ client.on('interactionCreate', async interaction => {
             try {
                 await interaction.editReply({
                     content: 'Sorry, something went wrong while getting UK politics news! 🇬🇧',
+                });
+            } catch {
+                console.error('Failed to send error message to user');
+            }
+        }
+    } else if (commandName === 'cyberscan') {
+        try {
+            // Defer the response for scanning effect
+            await interaction.deferReply();
+            
+            const targetUser = interaction.options.getUser('target');
+            
+            // Show "scanning" message first
+            await interaction.editReply({
+                content: '```\n🔍 BIOMETRIC SCAN INITIATED...\n⚡ ANALYZING NEURAL PATTERNS...\n🔬 DETECTING CYBERNETIC SIGNATURES...\n```'
+            });
+            
+            // Wait a moment for dramatic effect
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Generate scan data
+            const scanData = generateCyberScan(targetUser);
+            
+            // Create the cyberpunk-style embed
+            const embed = new EmbedBuilder()
+                .setTitle(`🤖 BIOMETRIC SCAN REPORT`)
+                .setDescription(`**TARGET:** ${targetUser.displayName}\n**USER ID:** ${targetUser.id.slice(0, 8)}...████\n**SCAN STATUS:** ✅ COMPLETE`)
+                .setColor(0x00FFFF) // Cyan color for cyberpunk feel
+                .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }))
+                .addFields(
+                    {
+                        name: '⚡ VITAL SYSTEMS',
+                        value: `\`\`\`yaml\nEnergy Level: ${scanData.energyLevel}%\nHeart Rate: ${scanData.heartRate} BPM\nCore Temp: ${scanData.bodyTemp}°C\nBrain Activity: ${scanData.brainActivity}%\n\`\`\``,
+                        inline: true
+                    },
+                    {
+                        name: '🔧 CYBERNETIC STATUS',
+                        value: `\`\`\`yaml\nEnhancement Level: ${scanData.cyberLevel}/5\nThreat Assessment: ${scanData.threatLevel}/10\nImplants Detected: ${scanData.installedImplants.length}\n\`\`\``,
+                        inline: true
+                    }
+                )
+                .setFooter({ 
+                    text: `NEXUS CORP BIOMETRIC SCANNER v3.7.2 • Scan ID: ${Date.now().toString(16).toUpperCase()}` 
+                })
+                .setTimestamp();
+            
+            // Add cybernetic implants if any
+            if (scanData.installedImplants.length > 0) {
+                embed.addFields({
+                    name: '🦾 DETECTED CYBERNETIC IMPLANTS',
+                    value: `\`\`\`diff\n${scanData.installedImplants.map(implant => `+ ${implant}`).join('\n')}\n\`\`\``,
+                    inline: false
+                });
+            }
+            
+            // Add detected weaknesses
+            if (scanData.detectedWeaknesses.length > 0) {
+                embed.addFields({
+                    name: '⚠️ VULNERABILITY ASSESSMENT',
+                    value: `\`\`\`fix\n${scanData.detectedWeaknesses.map(weakness => `- ${weakness}`).join('\n')}\n\`\`\``,
+                    inline: false
+                });
+            }
+            
+            // Add scan completion bar
+            const progressBar = '█'.repeat(10);
+            embed.addFields({
+                name: '📊 SCAN PROGRESS',
+                value: `\`\`\`\n${progressBar} ${scanData.scanProgress}%\nSCAN COMPLETE - ALL SYSTEMS NOMINAL\n\`\`\``,
+                inline: false
+            });
+            
+            await interaction.editReply({ content: '', embeds: [embed] });
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`CyberScan command used by ${interaction.user.tag} in ${location} on ${targetUser.tag}`);
+            
+        } catch (error) {
+            console.error('Error in cyberscan command:', error);
+            try {
+                await interaction.editReply({
+                    content: '```diff\n- SCAN ERROR: BIOMETRIC SYSTEMS OFFLINE\n- PLEASE RETRY IN EMERGENCY MODE\n```',
                 });
             } catch {
                 console.error('Failed to send error message to user');
