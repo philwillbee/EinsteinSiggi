@@ -472,6 +472,98 @@ async function getSaintImage(saintName) {
     return null;
 }
 
+// Function to generate cybernetic upgrade for a user
+function generateCyberUpgrade(user) {
+    // Generate deterministic "random" values based on user ID and timestamp for variation
+    const seed = parseInt(user.id.slice(-8), 16) + Date.now();
+    const rng = (n) => (seed * 9301 + 49297 + n * 233280) % 233280 / 233280;
+    
+    // Cybernetic augmentations with detailed descriptions
+    const augmentations = [
+        {
+            name: 'Neural Uplink Interface',
+            type: 'COGNITIVE',
+            description: 'Direct brain-computer interface with quantum encryption',
+            benefits: ['Instant data access', 'Enhanced memory capacity', 'Wireless device control'],
+            installTime: '4.2 hours',
+            compatibility: '99.7%'
+        },
+        {
+            name: 'Cybernetic Arm Assembly',
+            type: 'PHYSICAL',
+            description: 'Military-grade prosthetic with titanium-steel composite',
+            benefits: ['10x strength enhancement', 'Built-in tool suite', 'EMP-hardened circuits'],
+            installTime: '6.8 hours',
+            compatibility: '94.3%'
+        },
+        {
+            name: 'Ocular Enhancement Array',
+            type: 'SENSORY',
+            description: 'Multi-spectrum vision system with AR overlay',
+            benefits: ['Infrared/UV vision', 'Zoom capabilities', 'Target tracking HUD'],
+            installTime: '3.5 hours',
+            compatibility: '97.2%'
+        },
+        {
+            name: 'Subdermal Armor Plating',
+            type: 'DEFENSIVE',
+            description: 'Nanotechnology-enhanced dermal protection layer',
+            benefits: ['Ballistic resistance', 'Chemical immunity', 'Temperature regulation'],
+            installTime: '8.1 hours',
+            compatibility: '91.8%'
+        },
+        {
+            name: 'Synthetic Spine Column',
+            type: 'STRUCTURAL',
+            description: 'Bio-mechanical spinal replacement with neural boosters',
+            benefits: ['Enhanced reflexes', 'Perfect posture', 'Pain immunity'],
+            installTime: '12.3 hours',
+            compatibility: '88.4%'
+        },
+        {
+            name: 'Cardiac Regulator Module',
+            type: 'BIOLOGICAL',
+            description: 'Artificial heart with performance optimization',
+            benefits: ['Unlimited endurance', 'Toxin filtration', 'Stress immunity'],
+            installTime: '7.6 hours',
+            compatibility: '95.1%'
+        },
+        {
+            name: 'Memory Augmentation Chip',
+            type: 'COGNITIVE',
+            description: 'Quantum storage system for perfect recall',
+            benefits: ['Photographic memory', 'Skill downloads', 'Thought encryption'],
+            installTime: '2.9 hours',
+            compatibility: '98.6%'
+        },
+        {
+            name: 'Synthetic Lung Array',
+            type: 'BIOLOGICAL',
+            description: 'Enhanced respiratory system with filtration',
+            benefits: ['Underwater breathing', 'Poison immunity', 'Atmospheric adaptation'],
+            installTime: '5.4 hours',
+            compatibility: '92.7%'
+        }
+    ];
+    
+    // Select random augmentation
+    const selectedUpgrade = augmentations[Math.floor(rng(1) * augmentations.length)];
+    
+    // Generate upgrade stats
+    const successRate = Math.floor(rng(2) * 20) + 80; // 80-99%
+    const installationTime = selectedUpgrade.installTime;
+    const riskLevel = Math.floor(rng(3) * 5) + 1; // 1-5
+    const upgradeId = Math.random().toString(36).substr(2, 8).toUpperCase();
+    
+    return {
+        ...selectedUpgrade,
+        successRate,
+        installationTime,
+        riskLevel,
+        upgradeId
+    };
+}
+
 // Function to generate cyberscan data for a user
 function generateCyberScan(user) {
     // Generate deterministic "random" values based on user ID for consistency
@@ -959,6 +1051,20 @@ const commands = [
                 name: 'target',
                 type: 6, // USER type
                 description: 'The user to scan',
+                required: true
+            }
+        ]
+    },
+    {
+        name: 'upgrade',
+        description: 'Install a random cybernetic augmentation on a user',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'target',
+                type: 6, // USER type
+                description: 'The user to upgrade',
                 required: true
             }
         ]
@@ -1596,6 +1702,86 @@ client.on('interactionCreate', async interaction => {
             try {
                 await interaction.editReply({
                     content: '```diff\n- SCAN ERROR: BIOMETRIC SYSTEMS OFFLINE\n- PLEASE RETRY IN EMERGENCY MODE\n```',
+                });
+            } catch {
+                console.error('Failed to send error message to user');
+            }
+        }
+    } else if (commandName === 'upgrade') {
+        try {
+            // Defer the response for installation effect
+            await interaction.deferReply();
+            
+            const targetUser = interaction.options.getUser('target');
+            
+            // Show "installing" message first
+            await interaction.editReply({
+                content: '```\n🔧 AUGMENTATION PROTOCOL INITIATED...\n⚡ PREPARING SURGICAL CHAMBER...\n🧬 ANALYZING BIOLOGICAL COMPATIBILITY...\n```'
+            });
+            
+            // Wait for dramatic effect
+            await new Promise(resolve => setTimeout(resolve, 2500));
+            
+            // Generate upgrade data
+            const upgradeData = generateCyberUpgrade(targetUser);
+            
+            // Determine risk color
+            let riskColor;
+            if (upgradeData.riskLevel <= 2) riskColor = '🟢';
+            else if (upgradeData.riskLevel <= 3) riskColor = '🟡';
+            else riskColor = '🔴';
+            
+            // Create the cyberpunk-style embed
+            const embed = new EmbedBuilder()
+                .setTitle(`🦾 CYBERNETIC AUGMENTATION INSTALLED`)
+                .setDescription(`**SUBJECT:** ${targetUser.displayName}\n**PROCEDURE ID:** ${upgradeData.upgradeId}\n**STATUS:** ✅ INSTALLATION COMPLETE`)
+                .setColor(0x00FF41) // Matrix green for successful upgrade
+                .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }))
+                .addFields(
+                    {
+                        name: '⚙️ AUGMENTATION DETAILS',
+                        value: `\`\`\`yaml\nModel: ${upgradeData.name}\nType: ${upgradeData.type}\nCompatibility: ${upgradeData.compatibility}\nSuccess Rate: ${upgradeData.successRate}%\n\`\`\``,
+                        inline: true
+                    },
+                    {
+                        name: '🔬 INSTALLATION DATA',
+                        value: `\`\`\`yaml\nDuration: ${upgradeData.installationTime}\nRisk Level: ${riskColor} ${upgradeData.riskLevel}/5\nProcedure: COMPLETED\n\`\`\``,
+                        inline: true
+                    },
+                    {
+                        name: '📋 TECHNICAL SPECIFICATIONS',
+                        value: `\`\`\`fix\n${upgradeData.description}\n\`\`\``,
+                        inline: false
+                    },
+                    {
+                        name: '⚡ ENHANCED CAPABILITIES',
+                        value: `\`\`\`diff\n${upgradeData.benefits.map(benefit => `+ ${benefit}`).join('\n')}\n\`\`\``,
+                        inline: false
+                    }
+                )
+                .setFooter({ 
+                    text: `NEXUS CORP AUGMENTATION LABS v2.4.1 • Warranty: 25 Years` 
+                })
+                .setTimestamp();
+            
+            // Add installation progress bar
+            const progressBar = '█'.repeat(10);
+            embed.addFields({
+                name: '📊 INSTALLATION PROGRESS',
+                value: `\`\`\`\n${progressBar} 100%\nAUGMENTATION ACTIVE - NEURAL SYNC ESTABLISHED\n\`\`\``,
+                inline: false
+            });
+            
+            await interaction.editReply({ content: '', embeds: [embed] });
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Upgrade command used by ${interaction.user.tag} in ${location} on ${targetUser.tag} - ${upgradeData.name}`);
+            
+        } catch (error) {
+            console.error('Error in upgrade command:', error);
+            try {
+                await interaction.editReply({
+                    content: '```diff\n- INSTALLATION FAILED: SURGICAL CHAMBER MALFUNCTION\n- SUBJECT REMAINS UNMODIFIED\n- PLEASE RETRY WITH BACKUP SYSTEMS\n```',
                 });
             } catch {
                 console.error('Failed to send error message to user');
