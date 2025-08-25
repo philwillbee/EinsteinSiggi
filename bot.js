@@ -485,65 +485,78 @@ function getColorHex(colorName) {
     return colors[colorName] || 0x228B22;
 }
 
-// Function to get saint image from reliable sources
+// Function to scrape Google Images for saint pictures  
 async function getSaintImage(saintName) {
     try {
-        // Comprehensive saint image database using reliable Catholic sites and art museums
-        const saintImages = {
-            'Louis IX': 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=400&fit=crop',
-            'Louis': 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=400&fit=crop', 
-            'Augustine': 'https://www.catholic.org/files/images/saints/st_augustine.jpg',
-            'Monica': 'https://www.catholic.org/files/images/saints/st_monica.jpg',
-            'Bartholomew': 'https://www.catholic.org/files/images/saints/st_bartholomew.jpg',
-            'Rose of Lima': 'https://www.catholic.org/files/images/saints/rose_lima.jpg',
-            'Bernard': 'https://www.catholic.org/files/images/saints/st_bernard.jpg',
-            'Pius X': 'https://www.vatican.va/content/dam/vatican/images/saints/pius-x.jpg',
-            'Queenship of the Blessed Virgin Mary': 'https://www.catholic.org/files/images/mary/queenship_mary.jpg',
-            'Lawrence': 'https://www.catholic.org/files/images/saints/st_lawrence.jpg',
-            'Clare': 'https://www.catholic.org/files/images/saints/st_clare.jpg',
-            'Maximilian Kolbe': 'https://www.catholic.org/files/images/saints/maximilian_kolbe.jpg',
-            'Assumption of the Blessed Virgin Mary': 'https://www.catholic.org/files/images/mary/assumption.jpg',
-            'Stephen of Hungary': 'https://www.catholic.org/files/images/saints/stephen_hungary.jpg',
-            'John Eudes': 'https://www.catholic.org/files/images/saints/john_eudes.jpg',
-            'Dominic': 'https://www.catholic.org/files/images/saints/st_dominic.jpg',
-            'Teresa Benedicta of the Cross': 'https://www.catholic.org/files/images/saints/edith_stein.jpg',
-            'Sixtus II and Companions': 'https://www.catholic.org/files/images/saints/sixtus_ii.jpg',
-            'Transfiguration of the Lord': 'https://www.catholic.org/files/images/jesus/transfiguration.jpg',
-            'Dedication of the Basilica of St. Mary Major': 'https://www.vatican.va/content/dam/vatican/images/basilicas/mary-major.jpg',
-            'John Vianney': 'https://www.catholic.org/files/images/saints/john_vianney.jpg',
-            'Eusebius of Vercelli': 'https://www.catholic.org/files/images/saints/eusebius.jpg',
-            'Alphonsus Liguori': 'https://www.catholic.org/files/images/saints/alphonsus_liguori.jpg',
-            'The Conversion of Saint Paul, Apostle': 'https://www.catholic.org/files/images/saints/conversion_paul.jpg',
-            'Passion of Saint John the Baptist': 'https://www.catholic.org/files/images/saints/john_baptist_passion.jpg'
-        };
+        console.log(`Scraping Google Images for saint: ${saintName}`);
+        
+        // Build Google Images search query
+        const searchQuery = `"Saint ${saintName}" OR "St ${saintName}" saint catholic painting portrait`;
+        const encodedQuery = encodeURIComponent(searchQuery);
+        const googleImagesUrl = `https://www.google.com/search?tbm=isch&q=${encodedQuery}`;
+        
+        console.log(`Searching: ${searchQuery}`);
+        
+        // Make request to Google Images
+        const response = await axios.get(googleImagesUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'keep-alive'
+            },
+            timeout: 10000
+        });
 
-        // Try exact match first
-        if (saintImages[saintName]) {
-            console.log(`Found exact saint image match for: ${saintName}`);
-            return saintImages[saintName];
-        }
-
-        // Try partial matches for common variations
-        const saintNameLower = saintName.toLowerCase();
-        for (const [key, imageUrl] of Object.entries(saintImages)) {
-            if (saintNameLower.includes(key.toLowerCase()) || key.toLowerCase().includes(saintNameLower)) {
-                console.log(`Found partial saint image match: ${key} for ${saintName}`);
-                return imageUrl;
+        // Parse HTML response to extract image URLs
+        const htmlContent = response.data;
+        
+        // Look for image URLs in the HTML using regex patterns that match Google Images format
+        const imageRegex = /"ou":"([^"]+)"/g;
+        const matches = [];
+        let match;
+        
+        while ((match = imageRegex.exec(htmlContent)) !== null && matches.length < 10) {
+            const imageUrl = match[1];
+            // Skip very small images, gifs, and irrelevant domains
+            if (!imageUrl.includes('.gif') && 
+                !imageUrl.includes('icon') && 
+                !imageUrl.includes('logo') && 
+                imageUrl.includes('http') &&
+                !imageUrl.includes('googleusercontent') &&
+                imageUrl.length > 50) {
+                matches.push(decodeURIComponent(imageUrl));
             }
         }
-
-        // Fallback: try to find by first word (common saint names)
-        const firstName = saintName.split(' ')[0];
-        if (saintImages[firstName]) {
-            console.log(`Found first name match: ${firstName} for ${saintName}`);
-            return saintImages[firstName];
+        
+        if (matches.length > 0) {
+            // Get the first good quality image
+            const selectedImage = matches[0];
+            console.log(`Found saint image via Google: ${selectedImage}`);
+            return selectedImage;
+        } else {
+            console.log(`No suitable saint image found for: ${saintName}`);
+            return null;
         }
 
-        console.log(`No saint image found for: ${saintName}`);
-        return null;
-
     } catch (error) {
-        console.error('Error getting saint image:', error);
+        console.error('Error scraping saint image:', error.message);
+        
+        // Fallback to a few reliable direct saint images if scraping fails
+        const fallbackImages = {
+            'Louis IX': 'https://cdn.britannica.com/25/119325-004-45ABEEC2/Louis-IX-detail-painting.jpg',
+            'Louis': 'https://cdn.britannica.com/25/119325-004-45ABEEC2/Louis-IX-detail-painting.jpg',
+            'Augustine': 'https://cdn.britannica.com/15/196715-050-2BC2B1A9/Saint-Augustine-Sandro-Botticelli-1480.jpg',
+            'Monica': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Saint_Monica_by_Antonio_de_Pereda.jpg/512px-Saint_Monica_by_Antonio_de_Pereda.jpg'
+        };
+        
+        if (fallbackImages[saintName] || fallbackImages[saintName.split(' ')[0]]) {
+            const fallbackUrl = fallbackImages[saintName] || fallbackImages[saintName.split(' ')[0]];
+            console.log(`Using fallback image for ${saintName}: ${fallbackUrl}`);
+            return fallbackUrl;
+        }
+        
         return null;
     }
 }
