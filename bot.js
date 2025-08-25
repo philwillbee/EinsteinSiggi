@@ -1387,14 +1387,17 @@ client.on('interactionCreate', async interaction => {
         }
     } else if (commandName === 'calendar') {
         try {
-            // Defer the response for scraping and API calls
-            await interaction.deferReply();
+            // Check if interaction is already acknowledged
+            if (!interaction.deferred && !interaction.replied) {
+                await interaction.deferReply();
+            }
             
             // Get Catholic liturgical data
             const liturgical = await getCatholicLiturgicalData();
             
             // Get saint image
             const saintImage = await getSaintImage(liturgical.saintName);
+            console.log(`Saint image result for ${liturgical.saintName}: ${saintImage ? 'Found' : 'Not found'}`);
             
             // Create elegant Vatican-style embed
             const embed = new EmbedBuilder()
@@ -1408,12 +1411,20 @@ client.on('interactionCreate', async interaction => {
                 })
                 .setTimestamp();
             
-            // Only add saint image if we have a verified working URL
+            // Add saint image if we have one
             if (saintImage) {
+                console.log(`Adding saint image to embed: ${saintImage}`);
                 embed.setImage(saintImage);
+            } else {
+                console.log(`No saint image available for ${liturgical.saintName}`);
             }
             
-            await interaction.editReply({ embeds: [embed] });
+            // Send the response
+            if (interaction.deferred) {
+                await interaction.editReply({ embeds: [embed] });
+            } else if (!interaction.replied) {
+                await interaction.reply({ embeds: [embed] });
+            }
             
             const location = interaction.guild ? interaction.guild.name : 'DM';
             console.log(`Calendar command used by ${interaction.user.tag} in ${location} - Saint: ${liturgical.saintName}`);
@@ -1421,11 +1432,18 @@ client.on('interactionCreate', async interaction => {
         } catch (error) {
             console.error('Error in calendar command:', error);
             try {
-                await interaction.editReply({
-                    content: 'Sorry, something went wrong while getting liturgical calendar information!',
-                });
-            } catch {
-                console.error('Failed to send error message to user');
+                if (interaction.deferred) {
+                    await interaction.editReply({
+                        content: 'Sorry, something went wrong while getting liturgical calendar information!',
+                    });
+                } else if (!interaction.replied) {
+                    await interaction.reply({
+                        content: 'Sorry, something went wrong while getting liturgical calendar information!',
+                        ephemeral: true
+                    });
+                }
+            } catch (replyError) {
+                console.error('Failed to send error message to user:', replyError);
             }
         }
     } else if (commandName === 'ping') {
