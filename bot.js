@@ -502,6 +502,117 @@ async function getLocationCoordinates(locationName) {
     }
 }
 
+// Periodic table element data
+const elements = {
+    'H': { name: 'Hydrogen', atomicNumber: 1, state: 'Gas', group: 'Nonmetal', fact: 'The most abundant element in the universe' },
+    'He': { name: 'Helium', atomicNumber: 2, state: 'Gas', group: 'Noble Gas', fact: 'Second lightest element and makes your voice squeaky' },
+    'Li': { name: 'Lithium', atomicNumber: 3, state: 'Solid', group: 'Alkali Metal', fact: 'Used in rechargeable batteries and mood stabilizers' },
+    'Be': { name: 'Beryllium', atomicNumber: 4, state: 'Solid', group: 'Alkaline Earth', fact: 'Extremely toxic but used in aerospace applications' },
+    'B': { name: 'Boron', atomicNumber: 5, state: 'Solid', group: 'Metalloid', fact: 'Essential for plant growth and found in cleaning products' },
+    'C': { name: 'Carbon', atomicNumber: 6, state: 'Solid', group: 'Nonmetal', fact: 'Forms more compounds than any other element' },
+    'N': { name: 'Nitrogen', atomicNumber: 7, state: 'Gas', group: 'Nonmetal', fact: 'Makes up 78% of Earth\'s atmosphere' },
+    'O': { name: 'Oxygen', atomicNumber: 8, state: 'Gas', group: 'Nonmetal', fact: 'Essential for breathing and combustion' },
+    'F': { name: 'Fluorine', atomicNumber: 9, state: 'Gas', group: 'Halogen', fact: 'The most reactive element and found in toothpaste' },
+    'Ne': { name: 'Neon', atomicNumber: 10, state: 'Gas', group: 'Noble Gas', fact: 'Creates the classic orange-red color in neon signs' },
+    'Na': { name: 'Sodium', atomicNumber: 11, state: 'Solid', group: 'Alkali Metal', fact: 'Explodes when it touches water' },
+    'Mg': { name: 'Magnesium', atomicNumber: 12, state: 'Solid', group: 'Alkaline Earth', fact: 'Burns with a brilliant white light, used in fireworks' },
+    'Al': { name: 'Aluminum', atomicNumber: 13, state: 'Solid', group: 'Post-transition Metal', fact: 'Most abundant metal in Earth\'s crust' },
+    'Si': { name: 'Silicon', atomicNumber: 14, state: 'Solid', group: 'Metalloid', fact: 'The basis of all computer chips and semiconductors' },
+    'P': { name: 'Phosphorus', atomicNumber: 15, state: 'Solid', group: 'Nonmetal', fact: 'White phosphorus glows in the dark and is highly flammable' },
+    'S': { name: 'Sulfur', atomicNumber: 16, state: 'Solid', group: 'Nonmetal', fact: 'Creates the rotten egg smell and is found in matches' },
+    'Cl': { name: 'Chlorine', atomicNumber: 17, state: 'Gas', group: 'Halogen', fact: 'Used to disinfect swimming pools and drinking water' },
+    'Ar': { name: 'Argon', atomicNumber: 18, state: 'Gas', group: 'Noble Gas', fact: 'Used in light bulbs to prevent the filament from oxidizing' },
+    'K': { name: 'Potassium', atomicNumber: 19, state: 'Solid', group: 'Alkali Metal', fact: 'Essential for nerve function, found in bananas' },
+    'Ca': { name: 'Calcium', atomicNumber: 20, state: 'Solid', group: 'Alkaline Earth', fact: 'Makes bones and teeth strong' },
+    'Fe': { name: 'Iron', atomicNumber: 26, state: 'Solid', group: 'Transition Metal', fact: 'Earth\'s core is mostly iron, and it\'s in your blood' },
+    'Cu': { name: 'Copper', atomicNumber: 29, state: 'Solid', group: 'Transition Metal', fact: 'Excellent conductor, turns green when oxidized (Statue of Liberty)' },
+    'Zn': { name: 'Zinc', atomicNumber: 30, state: 'Solid', group: 'Transition Metal', fact: 'Essential mineral that helps wounds heal faster' },
+    'Ag': { name: 'Silver', atomicNumber: 47, state: 'Solid', group: 'Transition Metal', fact: 'Best electrical conductor of all elements' },
+    'Au': { name: 'Gold', atomicNumber: 79, state: 'Solid', group: 'Transition Metal', fact: 'So unreactive it never tarnishes or rusts' },
+    'Pt': { name: 'Platinum', atomicNumber: 78, state: 'Solid', group: 'Transition Metal', fact: 'Rarer than gold and used in catalytic converters' },
+    'Hg': { name: 'Mercury', atomicNumber: 80, state: 'Liquid', group: 'Transition Metal', fact: 'Only metal that\'s liquid at room temperature' },
+    'Pb': { name: 'Lead', atomicNumber: 82, state: 'Solid', group: 'Post-transition Metal', fact: 'So dense it\'s used to block radiation' },
+    'U': { name: 'Uranium', atomicNumber: 92, state: 'Solid', group: 'Actinide', fact: 'Radioactive element used in nuclear power and weapons' }
+};
+
+// Function to get element information
+function getElementInfo(symbol) {
+    const element = elements[symbol.toUpperCase()];
+    if (!element) {
+        throw new Error('Element not found');
+    }
+    return element;
+}
+
+// Function to create element buttons (Discord limits us to 25 buttons per message)
+function createElementButtons(page = 0) {
+    const elementSymbols = Object.keys(elements);
+    const buttonsPerPage = 25;
+    const startIndex = page * buttonsPerPage;
+    const endIndex = Math.min(startIndex + buttonsPerPage, elementSymbols.length);
+    
+    const buttons = [];
+    let currentRow = [];
+    
+    for (let i = startIndex; i < endIndex; i++) {
+        const symbol = elementSymbols[i];
+        currentRow.push({
+            type: 2, // BUTTON
+            style: 2, // SECONDARY
+            label: symbol,
+            custom_id: `element_${symbol.toLowerCase()}`
+        });
+        
+        // Discord allows max 5 buttons per row
+        if (currentRow.length === 5 || i === endIndex - 1) {
+            buttons.push({
+                type: 1, // ACTION_ROW
+                components: currentRow
+            });
+            currentRow = [];
+        }
+    }
+    
+    // Add navigation buttons if needed
+    const totalPages = Math.ceil(elementSymbols.length / buttonsPerPage);
+    if (totalPages > 1) {
+        const navRow = [];
+        
+        if (page > 0) {
+            navRow.push({
+                type: 2,
+                style: 1, // PRIMARY
+                label: '⬅️ Previous',
+                custom_id: `periodic_prev_${page - 1}`
+            });
+        }
+        
+        navRow.push({
+            type: 2,
+            style: 4, // DANGER
+            label: `Page ${page + 1}/${totalPages}`,
+            custom_id: 'periodic_page_info',
+            disabled: true
+        });
+        
+        if (page < totalPages - 1) {
+            navRow.push({
+                type: 2,
+                style: 1, // PRIMARY
+                label: 'Next ➡️',
+                custom_id: `periodic_next_${page + 1}`
+            });
+        }
+        
+        buttons.push({
+            type: 1,
+            components: navRow
+        });
+    }
+    
+    return buttons;
+}
+
 // Function to get weather data from Open-Meteo API
 async function getWeatherData(latitude, longitude) {
     try {
@@ -628,6 +739,26 @@ const commands = [
                 required: true
             }
         ]
+    },
+    {
+        name: 'element',
+        description: 'Get detailed information about a chemical element',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'symbol',
+                type: 3, // STRING type
+                description: 'Element symbol (e.g., Fe, Au, H, O)',
+                required: true
+            }
+        ]
+    },
+    {
+        name: 'periodictable',
+        description: 'Display an interactive periodic table of elements',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
     }
 ];
 
@@ -1016,6 +1147,170 @@ client.on('interactionCreate', async interaction => {
             } catch {
                 console.error('Failed to send error message to user');
             }
+        }
+    } else if (commandName === 'element') {
+        try {
+            const symbol = interaction.options.getString('symbol');
+            const element = getElementInfo(symbol);
+            
+            // Create element info embed
+            const embed = new EmbedBuilder()
+                .setTitle(`🧪 ${element.name} (${symbol.toUpperCase()})`)
+                .setColor(0x4A90E2)
+                .addFields(
+                    {
+                        name: '⚛️ Atomic Number',
+                        value: element.atomicNumber.toString(),
+                        inline: true
+                    },
+                    {
+                        name: '🏷️ Symbol',
+                        value: symbol.toUpperCase(),
+                        inline: true
+                    },
+                    {
+                        name: '🌡️ State',
+                        value: element.state,
+                        inline: true
+                    },
+                    {
+                        name: '📊 Group',
+                        value: element.group,
+                        inline: false
+                    },
+                    {
+                        name: '💡 Fun Fact',
+                        value: element.fact,
+                        inline: false
+                    }
+                )
+                .setFooter({ text: 'Interactive Periodic Table • Click elements to explore!' })
+                .setTimestamp();
+            
+            await interaction.reply({ embeds: [embed] });
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Element command used by ${interaction.user.tag} in ${location} for element: ${element.name}`);
+            
+        } catch (error) {
+            console.error('Error in element command:', error);
+            try {
+                const errorMessage = error.message.includes('not found') ?
+                    `Sorry, I couldn't find information for element "${interaction.options.getString('symbol')}". Please check the element symbol.` :
+                    'Sorry, something went wrong while getting element information!';
+                
+                await interaction.reply({
+                    content: errorMessage,
+                    ephemeral: true
+                });
+            } catch {
+                console.error('Failed to send error message to user');
+            }
+        }
+    } else if (commandName === 'periodictable') {
+        try {
+            // Create periodic table embed
+            const embed = new EmbedBuilder()
+                .setTitle('🧪 Interactive Periodic Table')
+                .setDescription('Click any element button below to learn more about it!')
+                .setColor(0x4A90E2)
+                .setImage('attachment://periodic_table.png')
+                .setFooter({ text: 'Explore the elements • Click buttons to get detailed information' });
+            
+            // Get the first page of element buttons
+            const components = createElementButtons(0);
+            
+            await interaction.reply({
+                embeds: [embed],
+                components: components
+            });
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Periodic table command used by ${interaction.user.tag} in ${location}`);
+            
+        } catch (error) {
+            console.error('Error in periodictable command:', error);
+            try {
+                await interaction.reply({
+                    content: 'Sorry, something went wrong while loading the periodic table!',
+                    ephemeral: true
+                });
+            } catch {
+                console.error('Failed to send error message to user');
+            }
+        }
+    }
+});
+
+// Handle button interactions
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isButton()) return;
+    
+    try {
+        if (interaction.customId.startsWith('element_')) {
+            // Extract element symbol from custom_id
+            const symbol = interaction.customId.replace('element_', '').toUpperCase();
+            const element = getElementInfo(symbol);
+            
+            // Create element info embed
+            const embed = new EmbedBuilder()
+                .setTitle(`🧪 ${element.name} (${symbol})`)
+                .setColor(0x4A90E2)
+                .addFields(
+                    {
+                        name: '⚛️ Atomic Number',
+                        value: element.atomicNumber.toString(),
+                        inline: true
+                    },
+                    {
+                        name: '🏷️ Symbol',
+                        value: symbol,
+                        inline: true
+                    },
+                    {
+                        name: '🌡️ State',
+                        value: element.state,
+                        inline: true
+                    },
+                    {
+                        name: '📊 Group',
+                        value: element.group,
+                        inline: false
+                    },
+                    {
+                        name: '💡 Fun Fact',
+                        value: element.fact,
+                        inline: false
+                    }
+                )
+                .setFooter({ text: `Requested by ${interaction.user.displayName} • Interactive Periodic Table` })
+                .setTimestamp();
+            
+            await interaction.reply({ embeds: [embed], ephemeral: true });
+            
+        } else if (interaction.customId.startsWith('periodic_')) {
+            // Handle pagination
+            if (interaction.customId.startsWith('periodic_next_')) {
+                const page = parseInt(interaction.customId.replace('periodic_next_', ''));
+                const components = createElementButtons(page);
+                
+                await interaction.update({ components: components });
+            } else if (interaction.customId.startsWith('periodic_prev_')) {
+                const page = parseInt(interaction.customId.replace('periodic_prev_', ''));
+                const components = createElementButtons(page);
+                
+                await interaction.update({ components: components });
+            }
+        }
+    } catch (error) {
+        console.error('Error handling button interaction:', error);
+        try {
+            await interaction.reply({
+                content: 'Sorry, something went wrong!',
+                ephemeral: true
+            });
+        } catch {
+            console.error('Failed to send error message');
         }
     }
 });
