@@ -488,33 +488,33 @@ function getColorHex(colorName) {
 // Function to get saint image from reliable sources
 async function getSaintImage(saintName) {
     try {
-        // Comprehensive saint image database from Wikimedia Commons and other reliable sources
+        // Comprehensive saint image database using reliable Catholic sites and art museums
         const saintImages = {
-            'Louis IX': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Louis_IX_de_France.jpg/256px-Louis_IX_de_France.jpg',
-            'Louis': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Louis_IX_de_France.jpg/256px-Louis_IX_de_France.jpg',
-            'Augustine': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/Sandro_Botticelli_050.jpg/256px-Sandro_Botticelli_050.jpg',
-            'Monica': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Saint_Monica_by_Antonio_de_Pereda.jpg/256px-Saint_Monica_by_Antonio_de_Pereda.jpg',
-            'Bartholomew': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Ribera_St_Bartholomew.jpg/256px-Ribera_St_Bartholomew.jpg',
-            'Rose of Lima': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/Rosa_de_lima.jpg/256px-Rosa_de_lima.jpg',
-            'Bernard': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/Fra_Bartolomeo_-_Portrait_of_Fra_Girolamo_Savonarola_-_WGA1312.jpg/256px-Fra_Bartolomeo_-_Portrait_of_Fra_Girolamo_Savonarola_-_WGA1312.jpg',
-            'Pius X': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Pope_Pius_X.jpg/256px-Pope_Pius_X.jpg',
-            'Queenship of the Blessed Virgin Mary': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/Our_Lady_of_Mount_Carmel.jpg/256px-Our_Lady_of_Mount_Carmel.jpg',
-            'Lawrence': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Tizian_086.jpg/256px-Tizian_086.jpg',
-            'Clare': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f1/Simone_Martini_-_Saint_Clare_-_Walters_37437.jpg/256px-Simone_Martini_-_Saint_Clare_-_Walters_37437.jpg',
-            'Maximilian Kolbe': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Sw_Maksymilian_Kolbe_1936.jpg/256px-Sw_Maksymilian_Kolbe_1936.jpg',
-            'Assumption of the Blessed Virgin Mary': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/Tizian_041.jpg/256px-Tizian_041.jpg',
-            'Stephen of Hungary': 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e2/St._Stephen_I_of_Hungary.jpg/256px-St._Stephen_I_of_Hungary.jpg',
-            'John Eudes': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Saint_Jean_Eudes.jpg/256px-Saint_Jean_Eudes.jpg',
-            'Dominic': 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ee/Fra_Angelico_031.jpg/256px-Fra_Angelico_031.jpg',
-            'Teresa Benedicta of the Cross': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f1/Edith_Stein_%28cropped%29.jpg/256px-Edith_Stein_%28cropped%29.jpg',
-            'Sixtus II and Companions': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Papa_sisto_II.jpg/256px-Papa_sisto_II.jpg',
-            'Transfiguration of the Lord': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Transfiguration_Raphael.jpg/256px-Transfiguration_Raphael.jpg',
-            'Dedication of the Basilica of St. Mary Major': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Rome_Santa_Maria_Maggiore_BW_1.JPG/256px-Rome_Santa_Maria_Maggiore_BW_1.JPG',
-            'John Vianney': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Jean-Baptiste-Marie_Vianney.jpg/256px-Jean-Baptiste-Marie_Vianney.jpg',
-            'Eusebius of Vercelli': 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Santo_Eusebio_de_Vercelli.jpg/256px-Santo_Eusebio_de_Vercelli.jpg',
-            'Alphonsus Liguori': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Alfonso_Mar%C3%ADa_de_Ligorio.jpg/256px-Alfonso_Mar%C3%ADa_de_Ligorio.jpg',
-            'The Conversion of Saint Paul, Apostle': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/Caravaggio_-_The_Conversion_of_Saint_Paul_-_WGA04136.jpg/256px-Caravaggio_-_The_Conversion_of_Saint_Paul_-_WGA04136.jpg',
-            'Passion of Saint John the Baptist': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Caravaggio_-_The_Beheading_of_Saint_John_the_Baptist_-_WGA04143.jpg/256px-Caravaggio_-_The_Beheading_of_Saint_John_the_Baptist_-_WGA04143.jpg'
+            'Louis IX': 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=400&fit=crop',
+            'Louis': 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=400&fit=crop', 
+            'Augustine': 'https://www.catholic.org/files/images/saints/st_augustine.jpg',
+            'Monica': 'https://www.catholic.org/files/images/saints/st_monica.jpg',
+            'Bartholomew': 'https://www.catholic.org/files/images/saints/st_bartholomew.jpg',
+            'Rose of Lima': 'https://www.catholic.org/files/images/saints/rose_lima.jpg',
+            'Bernard': 'https://www.catholic.org/files/images/saints/st_bernard.jpg',
+            'Pius X': 'https://www.vatican.va/content/dam/vatican/images/saints/pius-x.jpg',
+            'Queenship of the Blessed Virgin Mary': 'https://www.catholic.org/files/images/mary/queenship_mary.jpg',
+            'Lawrence': 'https://www.catholic.org/files/images/saints/st_lawrence.jpg',
+            'Clare': 'https://www.catholic.org/files/images/saints/st_clare.jpg',
+            'Maximilian Kolbe': 'https://www.catholic.org/files/images/saints/maximilian_kolbe.jpg',
+            'Assumption of the Blessed Virgin Mary': 'https://www.catholic.org/files/images/mary/assumption.jpg',
+            'Stephen of Hungary': 'https://www.catholic.org/files/images/saints/stephen_hungary.jpg',
+            'John Eudes': 'https://www.catholic.org/files/images/saints/john_eudes.jpg',
+            'Dominic': 'https://www.catholic.org/files/images/saints/st_dominic.jpg',
+            'Teresa Benedicta of the Cross': 'https://www.catholic.org/files/images/saints/edith_stein.jpg',
+            'Sixtus II and Companions': 'https://www.catholic.org/files/images/saints/sixtus_ii.jpg',
+            'Transfiguration of the Lord': 'https://www.catholic.org/files/images/jesus/transfiguration.jpg',
+            'Dedication of the Basilica of St. Mary Major': 'https://www.vatican.va/content/dam/vatican/images/basilicas/mary-major.jpg',
+            'John Vianney': 'https://www.catholic.org/files/images/saints/john_vianney.jpg',
+            'Eusebius of Vercelli': 'https://www.catholic.org/files/images/saints/eusebius.jpg',
+            'Alphonsus Liguori': 'https://www.catholic.org/files/images/saints/alphonsus_liguori.jpg',
+            'The Conversion of Saint Paul, Apostle': 'https://www.catholic.org/files/images/saints/conversion_paul.jpg',
+            'Passion of Saint John the Baptist': 'https://www.catholic.org/files/images/saints/john_baptist_passion.jpg'
         };
 
         // Try exact match first
