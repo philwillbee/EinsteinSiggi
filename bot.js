@@ -1108,6 +1108,20 @@ const commands = [
         ]
     },
     {
+        name: 'fart',
+        description: 'Fart on someone',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'user',
+                type: 6, // USER type
+                description: 'The user to fart on',
+                required: true
+            }
+        ]
+    },
+    {
         name: 'element',
         description: 'Get detailed information about a chemical element or list all elements',
         integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
@@ -1231,6 +1245,21 @@ client.on('interactionCreate', async interaction => {
             console.error('Error in chickensoup command:', error);
             await interaction.reply({ 
                 content: 'Sorry, something went wrong!', 
+                ephemeral: true 
+            });
+        }
+    } else if (commandName === 'fart') {
+        try {
+            const targetUser = interaction.options.getUser('user');
+            const message = `*farts on ${targetUser}*`;
+            
+            await interaction.reply(message);
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Fart command used by ${interaction.user.tag} on ${targetUser.tag} in ${location}`);
+        } catch (error) {
+            console.error('Error in fart command:', error);
+            await interaction.reply({ 
+                content: 'Sorry, something went wrong with the fart!', 
                 ephemeral: true 
             });
         }
