@@ -485,145 +485,54 @@ function getColorHex(colorName) {
     return colors[colorName] || 0x228B22;
 }
 
-// Function to get saint image using Bing Images scraping
+// Function to get saint image - simple Google Images first result
 async function getSaintImage(saintName) {
-    console.log(`Searching Bing Images for saint: ${saintName}`);
+    console.log(`Getting first Google Images result for: ${saintName}`);
     
     try {
-        // Try multiple Bing search strategies
-        const searchQueries = [
-            `"Saint ${saintName}" painting portrait catholic art`,
-            `"St ${saintName}" religious icon artwork`,
-            `${saintName} saint catholic church painting`,
-            `Saint ${saintName} medieval art religious painting`
-        ];
+        const searchQuery = `Saint ${saintName} painting portrait`;
+        const encodedQuery = encodeURIComponent(searchQuery);
+        const googleImagesUrl = `https://www.google.com/search?tbm=isch&q=${encodedQuery}`;
         
-        for (const query of searchQueries) {
-            console.log(`Trying Bing search: ${query}`);
-            const encodedQuery = encodeURIComponent(query);
-            const bingImagesUrl = `https://www.bing.com/images/search?q=${encodedQuery}&form=HDRSC2&first=1&tsc=ImageBasicHover`;
-            
-            try {
-                const response = await axios.get(bingImagesUrl, {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                        'Accept-Language': 'en-US,en;q=0.9',
-                        'Referer': 'https://www.bing.com/',
-                        'Cache-Control': 'no-cache'
-                    },
-                    timeout: 10000
-                });
+        console.log(`Searching: ${searchQuery}`);
+        
+        const response = await axios.get(googleImagesUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9'
+            },
+            timeout: 8000
+        });
 
-                // Parse Bing Images response for image URLs
-                const html = response.data;
-                const imageMatches = [];
-                
-                // Multiple regex patterns for Bing Images
-                const bingPatterns = [
-                    /"murl":"([^"]+)"/g,
-                    /"turl":"([^"]+)"/g,
-                    /m=\{[^}]*"murl":"([^"]+)"/g,
-                    /data-src="([^"]*\.(?:jpg|jpeg|png|webp)[^"]*)"/g,
-                    /"(https?:\/\/[^"]*\.(?:jpg|jpeg|png|webp))"/g
-                ];
-                
-                for (const pattern of bingPatterns) {
-                    let match;
-                    while ((match = pattern.exec(html)) !== null && imageMatches.length < 15) {
-                        let imageUrl = match[1];
-                        
-                        if (imageUrl && imageUrl.startsWith('http')) {
-                            // Decode URL if needed
-                            try {
-                                imageUrl = decodeURIComponent(imageUrl);
-                            } catch (e) {
-                                // If decode fails, use original
-                            }
-                            
-                            // Filter for good quality images
-                            if (!imageUrl.includes('.gif') && 
-                                !imageUrl.includes('icon') && 
-                                !imageUrl.includes('logo') &&
-                                !imageUrl.includes('avatar') &&
-                                !imageUrl.includes('thumbnail') &&
-                                imageUrl.length > 40 &&
-                                (imageUrl.includes('.jpg') || imageUrl.includes('.jpeg') || imageUrl.includes('.png') || imageUrl.includes('.webp'))) {
-                                
-                                imageMatches.push(imageUrl);
-                            }
-                        }
-                    }
-                }
-                
-                // Test found URLs and return the first working one
-                for (const imageUrl of imageMatches) {
-                    try {
-                        // Quick test to see if URL is accessible
-                        const testResponse = await axios.head(imageUrl, { 
-                            timeout: 4000,
-                            headers: {
-                                'User-Agent': 'Mozilla/5.0 (compatible; bot/1.0)'
-                            }
-                        });
-                        
-                        if (testResponse.status === 200) {
-                            console.log(`Found working Bing image for ${saintName}: ${imageUrl}`);
-                            return imageUrl;
-                        }
-                    } catch (testError) {
-                        console.log(`Image URL test failed: ${imageUrl.substring(0, 80)}...`);
-                        continue;
-                    }
-                }
-                
-                // If no URLs worked but we found some, return the first one (Discord might still load it)
-                if (imageMatches.length > 0) {
-                    console.log(`No URLs tested successfully, trying first Bing result: ${imageMatches[0]}`);
-                    return imageMatches[0];
-                }
-                
-            } catch (searchError) {
-                console.log(`Bing search failed for query "${query}": ${searchError.message}`);
-                continue; // Try next search query
-            }
+        // Find the very first image URL in the Google Images results
+        const html = response.data;
+        
+        // Look for the main image URL pattern used by Google Images
+        const imagePattern = /"ou":"([^"]+)"/;
+        const match = html.match(imagePattern);
+        
+        if (match && match[1]) {
+            const imageUrl = decodeURIComponent(match[1]);
+            console.log(`Found first Google Images result for ${saintName}: ${imageUrl}`);
+            return imageUrl;
         }
         
-        // If Bing fails, try DuckDuckGo as backup
-        console.log(`Bing failed, trying DuckDuckGo for: ${saintName}`);
-        const duckQuery = encodeURIComponent(`"Saint ${saintName}" painting portrait`);
-        const duckUrl = `https://duckduckgo.com/?q=${duckQuery}&t=h_&iax=images&ia=images`;
+        // Backup pattern if first doesn't work
+        const backupPattern = /"(https:\/\/[^"]*\.(?:jpg|jpeg|png|webp))"/;
+        const backupMatch = html.match(backupPattern);
         
-        try {
-            const duckResponse = await axios.get(duckUrl, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-                },
-                timeout: 8000
-            });
-            
-            // Simple pattern for DuckDuckGo images
-            const duckPattern = /"image":"([^"]+)"/g;
-            let duckMatch;
-            
-            while ((duckMatch = duckPattern.exec(duckResponse.data)) !== null) {
-                const imageUrl = decodeURIComponent(duckMatch[1]);
-                if (imageUrl.startsWith('http') && 
-                    (imageUrl.includes('.jpg') || imageUrl.includes('.jpeg') || imageUrl.includes('.png'))) {
-                    console.log(`Found DuckDuckGo image for ${saintName}: ${imageUrl}`);
-                    return imageUrl;
-                }
-            }
-        } catch (duckError) {
-            console.log(`DuckDuckGo search also failed: ${duckError.message}`);
+        if (backupMatch && backupMatch[1]) {
+            const imageUrl = backupMatch[1];
+            console.log(`Found backup Google Images result for ${saintName}: ${imageUrl}`);
+            return imageUrl;
         }
         
     } catch (error) {
-        console.error(`Overall image search failed for ${saintName}: ${error.message}`);
+        console.error(`Google Images search failed for ${saintName}: ${error.message}`);
     }
     
-    console.log(`No suitable saint image found for: ${saintName}`);
+    console.log(`No Google Images result found for: ${saintName}`);
     return null;
 }
 
