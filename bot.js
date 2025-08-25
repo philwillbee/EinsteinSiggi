@@ -714,7 +714,9 @@ const elements = {
 
 // Function to get element information
 function getElementInfo(symbol) {
-    const element = elements[symbol.toUpperCase()];
+    // Properly format chemical symbols (first letter uppercase, rest lowercase)
+    const formattedSymbol = symbol.charAt(0).toUpperCase() + symbol.slice(1).toLowerCase();
+    const element = elements[formattedSymbol];
     if (!element) {
         throw new Error('Element not found');
     }
@@ -860,6 +862,12 @@ const commands = [
                 type: 3, // STRING type
                 description: 'Element symbol (e.g., Fe, Au, H, O) or "list" to see all elements',
                 required: true
+            },
+            {
+                name: 'page',
+                type: 4, // INTEGER type
+                description: 'Page number for element list (1-5)',
+                required: false
             }
         ]
     },
@@ -1267,50 +1275,61 @@ client.on('interactionCreate', async interaction => {
                 const elementEntries = Object.entries(elements)
                     .sort((a, b) => a[1].atomicNumber - b[1].atomicNumber);
                 
-                // Split into chunks for multiple embeds (Discord has field limits)
+                // Split into chunks for pagination
                 const chunkSize = 25;
                 const chunks = [];
                 for (let i = 0; i < elementEntries.length; i += chunkSize) {
                     chunks.push(elementEntries.slice(i, i + chunkSize));
                 }
                 
-                const embeds = [];
+                // Get requested page (default to 1)
+                const pageNumber = interaction.options.getInteger('page') || 1;
+                const pageIndex = pageNumber - 1;
                 
-                for (let i = 0; i < chunks.length; i++) {
-                    const chunk = chunks[i];
-                    const embed = new EmbedBuilder()
-                        .setTitle(`🧪 Periodic Table Elements ${i === 0 ? '' : `(Part ${i + 1})`}`)
-                        .setColor(0x4A90E2)
-                        .setDescription(
-                            chunk.map(([symbol, element]) => 
-                                `**${element.atomicNumber}.** ${symbol} - ${element.name} (${element.group})`
-                            ).join('\n')
-                        )
-                        .setFooter({ 
-                            text: `Elements ${chunk[0][1].atomicNumber}-${chunk[chunk.length-1][1].atomicNumber} • Use /element [symbol] for details` 
-                        });
-                    
-                    if (i === 0) {
-                        embed.addFields({
-                            name: '📝 How to use',
-                            value: 'Type `/element H` for Hydrogen details, `/element Fe` for Iron, etc.',
-                            inline: false
-                        });
-                    }
-                    
-                    embeds.push(embed);
+                // Validate page number
+                if (pageIndex < 0 || pageIndex >= chunks.length) {
+                    await interaction.reply({
+                        content: `Invalid page number! Please use a number between 1 and ${chunks.length}.`,
+                        ephemeral: true
+                    });
+                    return;
                 }
                 
-                // Send first embed immediately
-                await interaction.reply({ embeds: [embeds[0]] });
+                const chunk = chunks[pageIndex];
+                const embed = new EmbedBuilder()
+                    .setTitle(`🧪 Periodic Table Elements - Page ${pageNumber}/${chunks.length}`)
+                    .setColor(0x4A90E2)
+                    .setDescription(
+                        chunk.map(([symbol, element]) => 
+                            `**${element.atomicNumber}.** ${symbol} - ${element.name} (${element.group})`
+                        ).join('\n')
+                    )
+                    .setFooter({ 
+                        text: `Elements ${chunk[0][1].atomicNumber}-${chunk[chunk.length-1][1].atomicNumber} • Use /element [symbol] for details` 
+                    });
                 
-                // Send remaining embeds as follow-ups
-                for (let i = 1; i < embeds.length; i++) {
-                    await interaction.followup.send({ embeds: [embeds[i]] });
+                // Add navigation info
+                if (chunks.length > 1) {
+                    embed.addFields({
+                        name: '📖 Navigation',
+                        value: `Use \`/element list page:${pageNumber + 1 <= chunks.length ? pageNumber + 1 : 1}\` for ${pageNumber + 1 <= chunks.length ? 'next' : 'first'} page\n` +
+                               `Pages available: 1-${chunks.length}`,
+                        inline: false
+                    });
                 }
+                
+                if (pageNumber === 1) {
+                    embed.addFields({
+                        name: '📝 How to use',
+                        value: 'Type `/element Fe` for Iron details, `/element Au` for Gold, etc.',
+                        inline: false
+                    });
+                }
+                
+                await interaction.reply({ embeds: [embed] });
                 
                 const location = interaction.guild ? interaction.guild.name : 'DM';
-                console.log(`Element list command used by ${interaction.user.tag} in ${location}`);
+                console.log(`Element list command used by ${interaction.user.tag} in ${location} - Page ${pageNumber}`);
                 
             } else {
                 // Get specific element info
