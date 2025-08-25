@@ -763,14 +763,14 @@ const commands = [
     },
     {
         name: 'element',
-        description: 'Get detailed information about a chemical element',
+        description: 'Get detailed information about a chemical element or list all elements',
         integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
         contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
         options: [
             {
                 name: 'symbol',
                 type: 3, // STRING type
-                description: 'Element symbol (e.g., Fe, Au, H, O)',
+                description: 'Element symbol (e.g., Fe, Au, H, O) or "list" to see all elements',
                 required: true
             }
         ]
@@ -1165,53 +1165,108 @@ client.on('interactionCreate', async interaction => {
         }
     } else if (commandName === 'element') {
         try {
-            const symbol = interaction.options.getString('symbol');
-            const element = getElementInfo(symbol);
+            const input = interaction.options.getString('symbol');
             
-            // Create element info embed
-            const embed = new EmbedBuilder()
-                .setTitle(`🧪 ${element.name} (${symbol.toUpperCase()})`)
-                .setColor(0x4A90E2)
-                .addFields(
-                    {
-                        name: '⚛️ Atomic Number',
-                        value: element.atomicNumber.toString(),
-                        inline: true
-                    },
-                    {
-                        name: '🏷️ Symbol',
-                        value: symbol.toUpperCase(),
-                        inline: true
-                    },
-                    {
-                        name: '🌡️ State',
-                        value: element.state,
-                        inline: true
-                    },
-                    {
-                        name: '📊 Group',
-                        value: element.group,
-                        inline: false
-                    },
-                    {
-                        name: '💡 Fun Fact',
-                        value: element.fact,
-                        inline: false
+            // Check if user wants to list all elements
+            if (input.toLowerCase() === 'list') {
+                // Create a formatted list of all elements
+                const elementEntries = Object.entries(elements)
+                    .sort((a, b) => a[1].atomicNumber - b[1].atomicNumber);
+                
+                // Split into chunks for multiple embeds (Discord has field limits)
+                const chunkSize = 25;
+                const chunks = [];
+                for (let i = 0; i < elementEntries.length; i += chunkSize) {
+                    chunks.push(elementEntries.slice(i, i + chunkSize));
+                }
+                
+                const embeds = [];
+                
+                for (let i = 0; i < chunks.length; i++) {
+                    const chunk = chunks[i];
+                    const embed = new EmbedBuilder()
+                        .setTitle(`🧪 Periodic Table Elements ${i === 0 ? '' : `(Part ${i + 1})`}`)
+                        .setColor(0x4A90E2)
+                        .setDescription(
+                            chunk.map(([symbol, element]) => 
+                                `**${element.atomicNumber}.** ${symbol} - ${element.name} (${element.group})`
+                            ).join('\n')
+                        )
+                        .setFooter({ 
+                            text: `Elements ${chunk[0][1].atomicNumber}-${chunk[chunk.length-1][1].atomicNumber} • Use /element [symbol] for details` 
+                        });
+                    
+                    if (i === 0) {
+                        embed.addFields({
+                            name: '📝 How to use',
+                            value: 'Type `/element H` for Hydrogen details, `/element Fe` for Iron, etc.',
+                            inline: false
+                        });
                     }
-                )
-                .setFooter({ text: 'Chemical Element Information' })
-                .setTimestamp();
-            
-            await interaction.reply({ embeds: [embed] });
-            
-            const location = interaction.guild ? interaction.guild.name : 'DM';
-            console.log(`Element command used by ${interaction.user.tag} in ${location} for element: ${element.name}`);
+                    
+                    embeds.push(embed);
+                }
+                
+                // Send first embed immediately
+                await interaction.reply({ embeds: [embeds[0]] });
+                
+                // Send remaining embeds as follow-ups
+                for (let i = 1; i < embeds.length; i++) {
+                    await interaction.followup.send({ embeds: [embeds[i]] });
+                }
+                
+                const location = interaction.guild ? interaction.guild.name : 'DM';
+                console.log(`Element list command used by ${interaction.user.tag} in ${location}`);
+                
+            } else {
+                // Get specific element info
+                const element = getElementInfo(input);
+                
+                // Create element info embed
+                const embed = new EmbedBuilder()
+                    .setTitle(`🧪 ${element.name} (${input.toUpperCase()})`)
+                    .setColor(0x4A90E2)
+                    .addFields(
+                        {
+                            name: '⚛️ Atomic Number',
+                            value: element.atomicNumber.toString(),
+                            inline: true
+                        },
+                        {
+                            name: '🏷️ Symbol',
+                            value: input.toUpperCase(),
+                            inline: true
+                        },
+                        {
+                            name: '🌡️ State',
+                            value: element.state,
+                            inline: true
+                        },
+                        {
+                            name: '📊 Group',
+                            value: element.group,
+                            inline: false
+                        },
+                        {
+                            name: '💡 Fun Fact',
+                            value: element.fact,
+                            inline: false
+                        }
+                    )
+                    .setFooter({ text: 'Chemical Element Information • Use /element list to see all elements' })
+                    .setTimestamp();
+                
+                await interaction.reply({ embeds: [embed] });
+                
+                const location = interaction.guild ? interaction.guild.name : 'DM';
+                console.log(`Element command used by ${interaction.user.tag} in ${location} for element: ${element.name}`);
+            }
             
         } catch (error) {
             console.error('Error in element command:', error);
             try {
                 const errorMessage = error.message.includes('not found') ?
-                    `Sorry, I couldn't find information for element "${interaction.options.getString('symbol')}". Please check the element symbol.` :
+                    `Sorry, I couldn't find information for element "${interaction.options.getString('symbol')}". Please check the element symbol or use "/element list" to see all available elements.` :
                     'Sorry, something went wrong while getting element information!';
                 
                 await interaction.reply({
