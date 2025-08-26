@@ -1074,6 +1074,11 @@ function generateCyberScan(user) {
         return generateMalfunctionedScan(user);
     }
     
+    // Special case for @bellringingenthusiast - boss entity mode
+    if (user.id === '174609823843876875') {
+        return generateBellringerBossScan(user);
+    }
+    
     // Generate deterministic "random" values based on user ID for consistency
     const seed = parseInt(user.id.slice(-8), 16);
     const rng = (n) => (seed * 9301 + 49297 + n * 233280) % 233280 / 233280;
@@ -1167,6 +1172,41 @@ function generateMalfunctionedScan(user) {
         scanProgress: 100,
         isCorrupted: true,
         errorMessage: '⚠️ SCAN CORRUPTED - SUBJECT TOO PATHETIC FOR ANALYSIS ⚠️'
+    };
+}
+
+// Special boss-style cyberscan for @bellringingenthusiast
+function generateBellringerBossScan(user) {
+    return {
+        energyLevel: 9, // Pathetically low
+        cyberLevel: 0,
+        threatLevel: 0, // Completely harmless
+        heartRate: 190, // Panic levels from being called out
+        bodyTemp: "41.2", // Sweating profusely
+        brainActivity: 3, // Minimal brain function
+        installedImplants: [
+            'PSEUDO_INTELLECTUAL_GENERATOR_v2.3',
+            'PATAGONIA_BRAND_LOYALTY_CHIP',
+            'CORNWALL_COTTAGE_OBSESSION_MODULE',
+            'KIA_SPORTAGE_ELECTRIC_COMPENSATOR',
+            'NATIONAL_TRUST_MEMBERSHIP_TRACKER'
+        ],
+        detectedWeaknesses: [
+            '🎯 BOSS ENTITY DETECTED: Insufferable Toff-Class Organism',
+            '💸 Patagonia-Dependent Life Support System Active',
+            '🏠 Cornwall Cottage Withdrawal Syndrome Imminent',
+            '🔔 Bell-Ringing Autism Spectrum Overload Detected',
+            '🚗 Kia Sportage Electric: Peak Midlife Crisis Manifestation',
+            '🧠 Cranium Size: MASSIVELY OVERSIZED (Compensating for Empty Contents)',
+            '🌈 Closeted Homosexual Energy Levels: MAXIMUM DETECTED',
+            '📚 Pseudo-Intellectual Gaseous Emissions: TOXIC LEVELS',
+            '💼 Toff Status: CONFIRMED TRUST FUND BABY',
+            '🤓 Geek-Nerd Classification: WEAPONIZED AUTISM VARIANT'
+        ],
+        scanProgress: 100,
+        isBossEntity: true,
+        bossTitle: '👑 SUPREME TOFF OVERLORD',
+        errorMessage: '⚠️ WARNING: MAXIMUM PRETENTIOUSNESS DETECTED ⚠️'
     };
 }
 
@@ -2970,30 +3010,36 @@ client.on('interactionCreate', async interaction => {
                         text: `NEXUS CORP SCANNER v3.7.2 • ERROR CODE: 0xDEADBEEF • PLEASE RESTART SYSTEM` 
                     })
                     .setTimestamp();
+            } else if (scanData.isBossEntity) {
+                // Special boss-style display for bellringingenthusiast
+                const bossEmbed = new EmbedBuilder()
+                    .setTitle(`${scanData.bossTitle} 🎯`)
+                    .setDescription(`**RARE ENTITY DETECTED:** ${targetUser.displayName}\n**CLASSIFICATION:** Supreme Toff-Class Organism\n**DANGER LEVEL:** Maximum Insufferability\n\n${scanData.errorMessage}`)
+                    .setColor(0xFFD700) // Gold for boss entity
+                    .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }))
+                    .addFields(
+                        {
+                            name: '🎭 TOFF VITAL SIGNS - PEAK PRETENTIOUSNESS',
+                            value: `\`\`\`yaml\nEnergy Level: ${scanData.energyLevel}% [PATHETICALLY LOW]\nHeart Rate: ${scanData.heartRate} BPM [PANIC LEVELS]\nCore Temp: ${scanData.bodyTemp}°C [SWEATING PROFUSELY]\nBrain Activity: ${scanData.brainActivity}% [BARELY FUNCTIONAL]\n\`\`\``,
+                            inline: false
+                        },
+                        {
+                            name: '🏆 TOFF-TIER IMPLANTS DETECTED',
+                            value: `\`\`\`md\n${scanData.installedImplants.map(implant => `# ${implant}`).join('\n')}\n\`\`\``,
+                            inline: false
+                        },
+                        {
+                            name: '💀 TERMINAL PERSONALITY FLAWS',
+                            value: `\`\`\`diff\n${scanData.detectedWeaknesses.map(weakness => `- ${weakness}`).join('\n')}\n\`\`\``,
+                            inline: false
+                        }
+                    )
+                    .setFooter({ 
+                        text: `🎯 BOSS ENTITY SCANNER v6.66 • INSUFFERABILITY LEVELS: MAXIMUM • BELL-RINGING AUTISM CONFIRMED` 
+                    })
+                    .setTimestamp();
                 
-                // Add corrupted implants
-                corruptedEmbed.addFields({
-                    name: '⚠️ SYSTEM CORRUPTION DETECTED',
-                    value: `\`\`\`css\n${scanData.installedImplants.map(implant => `[ERROR] ${implant}`).join('\n')}\n\`\`\``,
-                    inline: false
-                });
-                
-                // Add brutal assessment
-                corruptedEmbed.addFields({
-                    name: '💥 PATHETIC ORGANISM ANALYSIS',
-                    value: `\`\`\`diff\n${scanData.detectedWeaknesses.map(weakness => `- ${weakness}`).join('\n')}\n\`\`\``,
-                    inline: false
-                });
-                
-                // Corrupted progress bar
-                const corruptedBar = '█▓▒░▓█▒░▓█';
-                corruptedEmbed.addFields({
-                    name: '📊 SCAN CORRUPTED',
-                    value: `\`\`\`\n${corruptedBar} ERROR%\nSCAN FAILED - SUBJECT TOO PATHETIC TO PROCESS\n\`\`\``,
-                    inline: false
-                });
-                
-                await interaction.editReply({ content: '', embeds: [corruptedEmbed] });
+                await interaction.editReply({ embeds: [bossEmbed] });
             } else {
                 // Normal scan display
                 const embed = new EmbedBuilder()
