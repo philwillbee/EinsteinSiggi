@@ -1891,6 +1891,26 @@ const commands = [
                 required: true
             }
         ]
+    },
+    {
+        name: 'trial',
+        description: 'Put someone on trial with jury voting!',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'defendant',
+                type: 6, // USER type
+                description: 'The user to put on trial',
+                required: true
+            },
+            {
+                name: 'crime',
+                type: 3, // STRING type
+                description: 'What crime are they accused of?',
+                required: true
+            }
+        ]
     }
 ];
 
@@ -3254,6 +3274,151 @@ client.on('interactionCreate', async interaction => {
             console.error('Error in boom command:', error);
             await interaction.reply({ 
                 content: '💥 The explosion backfired! Something went wrong!', 
+                ephemeral: true 
+            });
+        }
+    } else if (commandName === 'trial') {
+        try {
+            const defendant = interaction.options.getUser('defendant');
+            const crime = interaction.options.getString('crime');
+            
+            // Create the trial embed
+            const trialEmbed = new EmbedBuilder()
+                .setTitle('⚖️ COURTROOM IS NOW IN SESSION ⚖️')
+                .setDescription(`**THE PEOPLE vs. ${defendant.displayName.toUpperCase()}**\n\n🏛️ *"All rise for the Honorable Judge Siggi"*`)
+                .setColor(0x8B4513) // Brown/wood color for courtroom
+                .setThumbnail(defendant.displayAvatarURL({ dynamic: true, size: 256 }))
+                .addFields(
+                    {
+                        name: '👨‍💼 DEFENDANT',
+                        value: `${defendant.displayName}`,
+                        inline: true
+                    },
+                    {
+                        name: '🔍 CHARGES',
+                        value: `**${crime}**`,
+                        inline: true
+                    },
+                    {
+                        name: '👩‍💼 PROSECUTOR',
+                        value: `${interaction.user.displayName}`,
+                        inline: true
+                    },
+                    {
+                        name: '⚖️ JURY INSTRUCTIONS',
+                        value: '**React below to cast your verdict:**\n✅ = **INNOCENT** (Not Guilty)\n❌ = **GUILTY** (Convicted)\n\n⏰ **Voting ends in 60 seconds!**',
+                        inline: false
+                    }
+                )
+                .setFooter({ text: `Court Case #${Date.now().toString().slice(-6)} • Judge Siggi presiding` })
+                .setTimestamp();
+            
+            // Send the trial message
+            const trialMessage = await interaction.reply({ embeds: [trialEmbed], fetchReply: true });
+            
+            // Add reaction buttons for voting
+            await trialMessage.react('✅'); // Innocent
+            await trialMessage.react('❌'); // Guilty
+            
+            // Log the trial
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Trial started by ${interaction.user.tag} against ${defendant.tag} for "${crime}" in ${location}`);
+            
+            // Set up 60-second countdown and collect votes
+            setTimeout(async () => {
+                try {
+                    // Fetch the message again to get updated reactions
+                    const updatedMessage = await trialMessage.fetch();
+                    
+                    // Count votes (subtract 1 to exclude bot's own reactions)
+                    const innocentVotes = updatedMessage.reactions.cache.get('✅')?.count - 1 || 0;
+                    const guiltyVotes = updatedMessage.reactions.cache.get('❌')?.count - 1 || 0;
+                    const totalVotes = innocentVotes + guiltyVotes;
+                    
+                    // Determine verdict
+                    let verdict, verdictColor, verdictIcon;
+                    if (totalVotes === 0) {
+                        verdict = 'MISTRIAL';
+                        verdictColor = 0x808080; // Gray
+                        verdictIcon = '🤷‍♂️';
+                    } else if (innocentVotes > guiltyVotes) {
+                        verdict = 'NOT GUILTY';
+                        verdictColor = 0x00FF00; // Green
+                        verdictIcon = '✅';
+                    } else if (guiltyVotes > innocentVotes) {
+                        verdict = 'GUILTY';
+                        verdictColor = 0xFF0000; // Red
+                        verdictIcon = '❌';
+                    } else {
+                        verdict = 'HUNG JURY';
+                        verdictColor = 0xFFFF00; // Yellow
+                        verdictIcon = '⚖️';
+                    }
+                    
+                    // Create verdict embed
+                    const verdictEmbed = new EmbedBuilder()
+                        .setTitle(`${verdictIcon} VERDICT REACHED ${verdictIcon}`)
+                        .setDescription(`**THE PEOPLE vs. ${defendant.displayName.toUpperCase()}**\n\n🏛️ *The jury has reached a decision...*`)
+                        .setColor(verdictColor)
+                        .setThumbnail(defendant.displayAvatarURL({ dynamic: true, size: 256 }))
+                        .addFields(
+                            {
+                                name: '⚖️ FINAL VERDICT',
+                                value: `**${verdict}**`,
+                                inline: false
+                            },
+                            {
+                                name: '📊 JURY VOTE BREAKDOWN',
+                                value: `✅ **Innocent:** ${innocentVotes} votes\n❌ **Guilty:** ${guiltyVotes} votes\n📊 **Total Votes:** ${totalVotes}`,
+                                inline: true
+                            },
+                            {
+                                name: '🔍 ORIGINAL CHARGES',
+                                value: `${crime}`,
+                                inline: true
+                            }
+                        )
+                        .setFooter({ text: `Justice served by Judge Siggi • Case closed` })
+                        .setTimestamp();
+                    
+                    // Add sentencing based on verdict
+                    if (verdict === 'GUILTY') {
+                        const sentences = [
+                            '⛓️ Sentenced to 30 days of community service',
+                            '📚 Must write "I will not commit crimes" 100 times',
+                            '🧹 Sentenced to cleaning duty for 1 week',
+                            '💰 Fined 50 Discord Coins (imaginary currency)',
+                            '🏠 House arrest until further notice',
+                            '📱 Phone privileges revoked for 24 hours',
+                            '🍕 No pizza for a week',
+                            '⏰ Early bedtime for 3 days'
+                        ];
+                        const randomSentence = sentences[Math.floor(Math.random() * sentences.length)];
+                        verdictEmbed.addFields({
+                            name: '⚖️ SENTENCING',
+                            value: randomSentence,
+                            inline: false
+                        });
+                    } else if (verdict === 'NOT GUILTY') {
+                        verdictEmbed.addFields({
+                            name: '🎉 FREEDOM',
+                            value: `${defendant.displayName} is FREE TO GO! All charges dismissed.`,
+                            inline: false
+                        });
+                    }
+                    
+                    // Edit the original message with verdict
+                    await updatedMessage.edit({ embeds: [verdictEmbed] });
+                    
+                } catch (error) {
+                    console.error('Error processing trial verdict:', error);
+                }
+            }, 60000); // 60 seconds
+            
+        } catch (error) {
+            console.error('Error in trial command:', error);
+            await interaction.reply({ 
+                content: '⚖️ Court is temporarily closed due to technical difficulties!', 
                 ephemeral: true 
             });
         }
