@@ -562,6 +562,16 @@ function searchCatechismTeachings(query) {
     const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 2);
     const results = [];
     
+    // Define important Catholic terms for relevance scoring
+    const importantTerms = [
+        'sacrament', 'eucharist', 'baptism', 'confirmation', 'marriage', 'holy orders', 'anointing',
+        'trinity', 'father', 'son', 'holy spirit', 'jesus', 'christ', 'mary', 'virgin',
+        'church', 'pope', 'bishop', 'priest', 'mass', 'prayer', 'rosary',
+        'sin', 'grace', 'salvation', 'heaven', 'hell', 'purgatory',
+        'commandment', 'virtue', 'charity', 'faith', 'hope', 'love',
+        'scripture', 'tradition', 'magisterium', 'doctrine', 'teaching'
+    ];
+    
     Object.keys(catechismData.page_nodes).forEach(nodeId => {
         const node = catechismData.page_nodes[nodeId];
         if (!node.paragraphs) return;
@@ -575,15 +585,62 @@ function searchCatechismTeachings(query) {
             extractTextFromElements(paragraph.elements)
         ).join(' ').toLowerCase();
         
-        // Score based on how many search terms are found
+        // Skip very short content that's likely not substantial teaching
+        if (content.length < 100) return;
+        
         let score = 0;
+        let hasImportantTerm = false;
+        let exactPhraseMatch = false;
+        
+        // Check for exact phrase match (highest priority)
+        if (content.includes(query.toLowerCase())) {
+            score += 100;
+            exactPhraseMatch = true;
+        }
+        if (title.toLowerCase().includes(query.toLowerCase())) {
+            score += 150;
+            exactPhraseMatch = true;
+        }
+        
+        // Score individual terms
         searchTerms.forEach(term => {
             const termCount = (content.match(new RegExp(term, 'g')) || []).length;
             const titleCount = (title.toLowerCase().match(new RegExp(term, 'g')) || []).length;
-            score += termCount + (titleCount * 3); // Weight title matches higher
+            
+            // Check if this is an important Catholic term
+            const isImportant = importantTerms.some(importantTerm => 
+                term.includes(importantTerm) || importantTerm.includes(term)
+            );
+            
+            if (isImportant && (termCount > 0 || titleCount > 0)) {
+                hasImportantTerm = true;
+            }
+            
+            // Weight scoring based on importance
+            const contentMultiplier = isImportant ? 3 : 1;
+            const titleMultiplier = isImportant ? 8 : 3;
+            
+            score += (termCount * contentMultiplier) + (titleCount * titleMultiplier);
         });
         
-        if (score > 0) {
+        // Bonus for important Catholic terms
+        if (hasImportantTerm) {
+            score += 50;
+        }
+        
+        // Bonus for exact phrase matches
+        if (exactPhraseMatch) {
+            score += 75;
+        }
+        
+        // Prioritize numbered paragraphs (actual teachings) over section headers
+        if (nodeId.match(/^\d+$/)) {
+            score += 25;
+        }
+        
+        // Only include meaningful results
+        const minScore = hasImportantTerm ? 10 : 20;
+        if (score >= minScore) {
             const paragraphTexts = node.paragraphs.map(paragraph => 
                 extractTextFromElements(paragraph.elements)
             ).filter(text => text.length > 0);
@@ -592,14 +649,23 @@ function searchCatechismTeachings(query) {
                 title: title,
                 content: paragraphTexts.join('\n\n'),
                 nodeId: nodeId,
-                score: score
+                score: score,
+                hasImportantTerm: hasImportantTerm,
+                exactPhraseMatch: exactPhraseMatch
             });
         }
     });
     
-    // Sort by score and return top results
-    results.sort((a, b) => b.score - a.score);
-    return results.slice(0, 5); // Return top 5 results
+    // Sort by relevance: exact matches first, then important terms, then by score
+    results.sort((a, b) => {
+        if (a.exactPhraseMatch && !b.exactPhraseMatch) return -1;
+        if (!a.exactPhraseMatch && b.exactPhraseMatch) return 1;
+        if (a.hasImportantTerm && !b.hasImportantTerm) return -1;
+        if (!a.hasImportantTerm && b.hasImportantTerm) return 1;
+        return b.score - a.score;
+    });
+    
+    return results.slice(0, 3); // Return top 3 most relevant results
 }
 
 // Fallback function to fetch from Vatican website
@@ -629,7 +695,7 @@ async function fallbackCatechismSearch(query) {
 }
 
 // Function to create paginated catechism embed
-function createCatechismEmbed(result, query, currentPage, totalPages, userId) {
+function createCatechismEmbed(result, query, currentPage, totalPages, userId, existingPaginationId = null) {
     let content = result.content;
     
     // Split content into pages if too long
@@ -657,15 +723,18 @@ function createCatechismEmbed(result, query, currentPage, totalPages, userId) {
             pages.push(currentPageContent.trim());
         }
         
-        // Store pagination data
-        const paginationId = `catechism_${userId}_${Date.now()}`;
-        paginationStore.set(paginationId, {
-            pages: pages,
-            title: result.title,
-            query: query,
-            userId: userId,
-            expires: Date.now() + 600000 // 10 minutes
-        });
+        // Use existing pagination ID or create new one
+        let paginationId = existingPaginationId;
+        if (!paginationId) {
+            paginationId = `catechism_${userId}_${Date.now()}`;
+            paginationStore.set(paginationId, {
+                pages: pages,
+                title: result.title,
+                query: query,
+                userId: userId,
+                expires: Date.now() + 600000 // 10 minutes
+            });
+        }
         
         content = pages[currentPage - 1] || pages[0];
         
@@ -2825,7 +2894,7 @@ client.on('interactionCreate', async interaction => {
             if (!paginationData || paginationData.userId !== interaction.user.id) {
                 await interaction.reply({
                     content: 'This pagination session has expired or you are not authorized to use it.',
-                    ephemeral: true
+                    flags: 64 // ephemeral flag
                 });
                 return;
             }
@@ -2835,7 +2904,7 @@ client.on('interactionCreate', async interaction => {
                 paginationStore.delete(paginationId);
                 await interaction.reply({
                     content: 'This pagination session has expired. Please search again.',
-                    ephemeral: true
+                    flags: 64 // ephemeral flag
                 });
                 return;
             }
@@ -2846,7 +2915,7 @@ client.on('interactionCreate', async interaction => {
                 content: paginationData.pages[pageNumber - 1]
             };
             
-            const response = createCatechismEmbed(result, paginationData.query, pageNumber, paginationData.pages.length, interaction.user.id);
+            const response = createCatechismEmbed(result, paginationData.query, pageNumber, paginationData.pages.length, interaction.user.id, paginationId);
             
             await interaction.update(response);
             
@@ -2857,7 +2926,7 @@ client.on('interactionCreate', async interaction => {
             try {
                 await interaction.reply({
                     content: 'Sorry, something went wrong with pagination!',
-                    ephemeral: true
+                    flags: 64 // ephemeral flag
                 });
             } catch {
                 console.error('Failed to send pagination error message');
