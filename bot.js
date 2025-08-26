@@ -1082,12 +1082,6 @@ const commands = [
         contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
     },
     {
-        name: 'calendar',
-        description: 'Get today\'s Catholic liturgical calendar and saint of the day',
-        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
-        contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
-    },
-    {
         name: 'ping',
         description: 'Test if the bot is online and responsive',
         integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
@@ -1428,67 +1422,6 @@ client.on('interactionCreate', async interaction => {
                 });
             } catch {
                 console.error('Failed to send error message to user');
-            }
-        }
-    } else if (commandName === 'calendar') {
-        try {
-            // Check if interaction is already acknowledged
-            if (!interaction.deferred && !interaction.replied) {
-                await interaction.deferReply();
-            }
-            
-            // Get Catholic liturgical data
-            const liturgical = await getCatholicLiturgicalData();
-            
-            // Get saint image
-            const saintImage = await getSaintImage(liturgical.saintName);
-            console.log(`Saint image result for ${liturgical.saintName}: ${saintImage ? 'Found' : 'Not found'}`);
-            
-            // Create elegant Vatican-style embed
-            const embed = new EmbedBuilder()
-                .setTitle(`✝️ SANCTI ET BEATI`)
-                .setDescription(`**${liturgical.date}**\n\n**SAINT ${liturgical.saintName.toUpperCase()}**\n\n*${liturgical.description}*\n\n━━━━━━━━━━━━━━━━━━━━━\n**Liturgical Color:** ${liturgical.liturgicalColor.name.charAt(0).toUpperCase() + liturgical.liturgicalColor.name.slice(1)}`)
-                .setColor(liturgical.liturgicalColor.hex)
-                .setThumbnail('https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Coat_of_arms_of_the_Vatican_City.svg/200px-Coat_of_arms_of_the_Vatican_City.svg.png')
-                .setFooter({ 
-                    text: `CALENDARIUM ROMANUM GENERALE • ${liturgical.source}`,
-                    iconURL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Coat_of_arms_of_the_Vatican_City.svg/50px-Coat_of_arms_of_the_Vatican_City.svg.png'
-                })
-                .setTimestamp();
-            
-            // Add saint image if we have one
-            if (saintImage) {
-                console.log(`Adding saint image to embed: ${saintImage}`);
-                embed.setImage(saintImage);
-            } else {
-                console.log(`No saint image available for ${liturgical.saintName}`);
-            }
-            
-            // Send the response
-            if (interaction.deferred) {
-                await interaction.editReply({ embeds: [embed] });
-            } else if (!interaction.replied) {
-                await interaction.reply({ embeds: [embed] });
-            }
-            
-            const location = interaction.guild ? interaction.guild.name : 'DM';
-            console.log(`Calendar command used by ${interaction.user.tag} in ${location} - Saint: ${liturgical.saintName}`);
-            
-        } catch (error) {
-            console.error('Error in calendar command:', error);
-            try {
-                if (interaction.deferred) {
-                    await interaction.editReply({
-                        content: 'Sorry, something went wrong while getting liturgical calendar information!',
-                    });
-                } else if (!interaction.replied) {
-                    await interaction.reply({
-                        content: 'Sorry, something went wrong while getting liturgical calendar information!',
-                        ephemeral: true
-                    });
-                }
-            } catch (replyError) {
-                console.error('Failed to send error message to user:', replyError);
             }
         }
     } else if (commandName === 'ping') {
