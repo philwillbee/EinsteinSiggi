@@ -3179,26 +3179,26 @@ client.on('interactionCreate', async interaction => {
         try {
             const targetUser = interaction.options.getUser('user');
             
-            // Array of explosion GIFs
-            const explosionGifs = [
-                'https://media.giphy.com/media/oe33xf3B50fsc/giphy.gif',
-                'https://media.giphy.com/media/HhTXt43pk1I1W/giphy.gif',
-                'https://media.giphy.com/media/3oKIPf3C7HqqYBVcCk/giphy.gif',
-                'https://media.giphy.com/media/26BRuo6sLetdllPAQ/giphy.gif',
-                'https://media.giphy.com/media/l46CyJmS9KUbokzsI/giphy.gif',
-                'https://media.giphy.com/media/j7F8n3f5IYays/giphy.gif',
-                'https://media.giphy.com/media/lNYQcXm6OLCak/giphy.gif'
-            ];
+            // Use the specific explosion GIF you requested
+            const explosionGif = 'https://media.tenor.com/nANqORN7qhQAAAAM/explosion-explode.gif';
             
-            // Pick random explosion GIF
-            const randomExplosion = explosionGifs[Math.floor(Math.random() * explosionGifs.length)];
-            
-            // Create simple explosion embed
+            // Create explosion embed with overlay effect
             const embed = new EmbedBuilder()
                 .setTitle('💥 BOOM! 💥')
                 .setColor(0xFF4500) // Red-orange explosion color
-                .setImage(randomExplosion)
-                .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }));
+                .setImage(explosionGif)
+                .setAuthor({ 
+                    name: `${targetUser.displayName} explodes!`, 
+                    iconURL: targetUser.displayAvatarURL({ dynamic: true, size: 512 }) 
+                })
+                // Use a large thumbnail for overlay effect
+                .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 512 }))
+                // Add the user's avatar as a field to make it more prominent
+                .addFields({
+                    name: '🎯 Target Eliminated',
+                    value: `<@${targetUser.id}>`,
+                    inline: true
+                });
 
             await interaction.reply({ embeds: [embed] });
             
