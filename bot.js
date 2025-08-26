@@ -1102,6 +1102,82 @@ const commands = [
         ]
     },
     {
+        name: 'password',
+        description: 'Generate a secure password',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'length',
+                type: 4, // INTEGER type
+                description: 'Password length (8-50 characters)',
+                required: false
+            },
+            {
+                name: 'include_symbols',
+                type: 5, // BOOLEAN type
+                description: 'Include special symbols (!@#$%^&*)',
+                required: false
+            }
+        ]
+    },
+    {
+        name: 'convert',
+        description: 'Convert between units (temperature, length, weight)',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'value',
+                type: 10, // NUMBER type
+                description: 'The value to convert',
+                required: true
+            },
+            {
+                name: 'from',
+                type: 3, // STRING type
+                description: 'Convert from (c, f, k, cm, m, km, in, ft, g, kg, lb, oz)',
+                required: true
+            },
+            {
+                name: 'to',
+                type: 3, // STRING type
+                description: 'Convert to (c, f, k, cm, m, km, in, ft, g, kg, lb, oz)',
+                required: true
+            }
+        ]
+    },
+    {
+        name: 'base64',
+        description: 'Encode or decode base64 text',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'action',
+                type: 3, // STRING type
+                description: 'Choose encode or decode',
+                required: true,
+                choices: [
+                    {
+                        name: 'encode',
+                        value: 'encode'
+                    },
+                    {
+                        name: 'decode',
+                        value: 'decode'
+                    }
+                ]
+            },
+            {
+                name: 'text',
+                type: 3, // STRING type
+                description: 'Text to encode/decode',
+                required: true
+            }
+        ]
+    },
+    {
         name: 'fart',
         description: 'Fart on someone',
         integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
@@ -1254,6 +1330,158 @@ client.on('interactionCreate', async interaction => {
             console.error('Error in fart command:', error);
             await interaction.reply({ 
                 content: 'Sorry, something went wrong with the fart!', 
+                ephemeral: true 
+            });
+        }
+    } else if (commandName === 'password') {
+        try {
+            const length = interaction.options.getInteger('length') || 16;
+            const includeSymbols = interaction.options.getBoolean('include_symbols') ?? true;
+            
+            if (length < 8 || length > 50) {
+                return await interaction.reply({ 
+                    content: 'Password length must be between 8 and 50 characters!', 
+                    ephemeral: true 
+                });
+            }
+            
+            const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+            const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            const numbers = '0123456789';
+            const symbols = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+            
+            let chars = lowercase + uppercase + numbers;
+            if (includeSymbols) {
+                chars += symbols;
+            }
+            
+            let password = '';
+            for (let i = 0; i < length; i++) {
+                password += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            
+            // Send password privately
+            await interaction.reply({ 
+                content: `🔒 **Generated Password:**\n\`\`\`${password}\`\`\`\n*Length: ${length} | Symbols: ${includeSymbols ? 'Yes' : 'No'}*`, 
+                ephemeral: true 
+            });
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Password command used by ${interaction.user.tag} in ${location} - Length: ${length}`);
+        } catch (error) {
+            console.error('Error in password command:', error);
+            await interaction.reply({ 
+                content: 'Sorry, something went wrong generating the password!', 
+                ephemeral: true 
+            });
+        }
+    } else if (commandName === 'convert') {
+        try {
+            const value = interaction.options.getNumber('value');
+            const fromUnit = interaction.options.getString('from').toLowerCase();
+            const toUnit = interaction.options.getString('to').toLowerCase();
+            
+            const conversions = {
+                // Temperature
+                c: { name: 'Celsius', type: 'temp' },
+                f: { name: 'Fahrenheit', type: 'temp' },
+                k: { name: 'Kelvin', type: 'temp' },
+                // Length
+                cm: { name: 'centimeters', type: 'length', toMeters: 0.01 },
+                m: { name: 'meters', type: 'length', toMeters: 1 },
+                km: { name: 'kilometers', type: 'length', toMeters: 1000 },
+                in: { name: 'inches', type: 'length', toMeters: 0.0254 },
+                ft: { name: 'feet', type: 'length', toMeters: 0.3048 },
+                // Weight
+                g: { name: 'grams', type: 'weight', toKg: 0.001 },
+                kg: { name: 'kilograms', type: 'weight', toKg: 1 },
+                lb: { name: 'pounds', type: 'weight', toKg: 0.453592 },
+                oz: { name: 'ounces', type: 'weight', toKg: 0.0283495 }
+            };
+            
+            if (!conversions[fromUnit] || !conversions[toUnit]) {
+                return await interaction.reply({ 
+                    content: 'Invalid unit! Use: c, f, k (temp) | cm, m, km, in, ft (length) | g, kg, lb, oz (weight)', 
+                    ephemeral: true 
+                });
+            }
+            
+            if (conversions[fromUnit].type !== conversions[toUnit].type) {
+                return await interaction.reply({ 
+                    content: 'Cannot convert between different unit types!', 
+                    ephemeral: true 
+                });
+            }
+            
+            let result;
+            const type = conversions[fromUnit].type;
+            
+            if (type === 'temp') {
+                // Temperature conversion
+                let celsius = value;
+                if (fromUnit === 'f') celsius = (value - 32) * 5/9;
+                if (fromUnit === 'k') celsius = value - 273.15;
+                
+                if (toUnit === 'c') result = celsius;
+                else if (toUnit === 'f') result = (celsius * 9/5) + 32;
+                else if (toUnit === 'k') result = celsius + 273.15;
+            } else if (type === 'length') {
+                // Length conversion
+                const meters = value * conversions[fromUnit].toMeters;
+                result = meters / conversions[toUnit].toMeters;
+            } else if (type === 'weight') {
+                // Weight conversion
+                const kg = value * conversions[fromUnit].toKg;
+                result = kg / conversions[toUnit].toKg;
+            }
+            
+            result = Math.round(result * 100000) / 100000; // Round to 5 decimal places
+            
+            await interaction.reply(
+                `🔄 **Unit Conversion**\n` +
+                `${value} ${conversions[fromUnit].name} = **${result} ${conversions[toUnit].name}**`
+            );
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Convert command used by ${interaction.user.tag} in ${location} - ${value} ${fromUnit} to ${toUnit}`);
+        } catch (error) {
+            console.error('Error in convert command:', error);
+            await interaction.reply({ 
+                content: 'Sorry, something went wrong with the conversion!', 
+                ephemeral: true 
+            });
+        }
+    } else if (commandName === 'base64') {
+        try {
+            const action = interaction.options.getString('action');
+            const text = interaction.options.getString('text');
+            
+            let result;
+            if (action === 'encode') {
+                result = Buffer.from(text, 'utf8').toString('base64');
+                await interaction.reply(
+                    `🔐 **Base64 Encoded:**\n\`\`\`${result}\`\`\`\n*Original: ${text.length} chars | Encoded: ${result.length} chars*`
+                );
+            } else {
+                try {
+                    result = Buffer.from(text, 'base64').toString('utf8');
+                    await interaction.reply(
+                        `🔓 **Base64 Decoded:**\n\`\`\`${result}\`\`\`\n*Encoded: ${text.length} chars | Decoded: ${result.length} chars*`
+                    );
+                } catch (decodeError) {
+                    return await interaction.reply({ 
+                        content: 'Invalid base64 string! Please check your input.', 
+                        ephemeral: true 
+                    });
+                }
+            }
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Base64 command used by ${interaction.user.tag} in ${location} - Action: ${action}`);
+        } catch (error) {
+            console.error('Error in base64 command:', error);
+            await interaction.reply({ 
+                content: 'Sorry, something went wrong with base64 processing!', 
                 ephemeral: true 
             });
         }
