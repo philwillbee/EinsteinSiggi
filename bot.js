@@ -1809,7 +1809,7 @@ async function registerGlobalCommands() {
 }
 
 // When the client is ready
-client.once('ready', async () => {
+client.once('clientReady', async () => {
     console.log(`${client.user.tag} has connected to Discord!`);
     console.log(`Bot is in ${client.guilds.cache.size} guilds`);
     
