@@ -1837,6 +1837,20 @@ const commands = [
         description: 'Get a random message from Mallon\'s Discord history',
         integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
         contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
+    },
+    {
+        name: 'boom',
+        description: 'Explode a user with dramatic effects!',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'user',
+                type: 6, // USER type
+                description: 'The user to explode',
+                required: true
+            }
+        ]
     }
 ];
 
@@ -3158,6 +3172,52 @@ client.on('interactionCreate', async interaction => {
             console.error('Error in mallon command:', error);
             await interaction.reply({ 
                 content: 'Sorry, something went wrong getting a message from Mallon\'s history!', 
+                ephemeral: true 
+            });
+        }
+    } else if (commandName === 'boom') {
+        try {
+            const targetUser = interaction.options.getUser('user');
+            
+            // Array of explosion GIFs
+            const explosionGifs = [
+                'https://media.giphy.com/media/oe33xf3B50fsc/giphy.gif',
+                'https://media.giphy.com/media/HhTXt43pk1I1W/giphy.gif',
+                'https://media.giphy.com/media/3oKIPf3C7HqqYBVcCk/giphy.gif',
+                'https://media.giphy.com/media/26BRuo6sLetdllPAQ/giphy.gif',
+                'https://media.giphy.com/media/l46CyJmS9KUbokzsI/giphy.gif',
+                'https://media.giphy.com/media/j7F8n3f5IYays/giphy.gif',
+                'https://media.giphy.com/media/lNYQcXm6OLCak/giphy.gif'
+            ];
+            
+            // Pick random explosion GIF
+            const randomExplosion = explosionGifs[Math.floor(Math.random() * explosionGifs.length)];
+            
+            // Create dramatic explosion embed
+            const embed = new EmbedBuilder()
+                .setTitle('💥 BOOM! 💥')
+                .setDescription(`**${targetUser.displayName} has been OBLITERATED!** 🔥\n\n💀 *Goodbye cruel world...* 💀`)
+                .setColor(0xFF4500) // Red-orange explosion color
+                .setImage(randomExplosion)
+                .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }))
+                .addFields({
+                    name: '💣 EXPLOSION REPORT',
+                    value: `\`\`\`diff\n+ Target: ${targetUser.displayName}\n+ Status: VAPORIZED\n+ Explosion Radius: 500m\n+ Casualties: 1\n+ Survivors: 0\n\`\`\``,
+                    inline: false
+                })
+                .setFooter({ 
+                    text: `💥 Boom executed by ${interaction.user.displayName} • RIP ${targetUser.displayName}` 
+                })
+                .setTimestamp();
+
+            await interaction.reply({ embeds: [embed] });
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Boom command used by ${interaction.user.tag} on ${targetUser.tag} in ${location}`);
+        } catch (error) {
+            console.error('Error in boom command:', error);
+            await interaction.reply({ 
+                content: '💥 The explosion backfired! Something went wrong!', 
                 ephemeral: true 
             });
         }
