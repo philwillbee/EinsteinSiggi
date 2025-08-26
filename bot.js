@@ -24,8 +24,7 @@ try {
     console.warn('Could not load catechism data:', error.message);
 }
 
-// Store for pagination data
-const paginationStore = new Map();
+// Note: Removed pagination store - now using direct command-based navigation
 
 // Only load dotenv in development (not on Railway)
 if (process.env.NODE_ENV !== 'production') {
@@ -694,12 +693,12 @@ async function fallbackCatechismSearch(query) {
     }
 }
 
-// Function to create paginated catechism embed
-function createCatechismEmbed(result, query, currentPage, totalPages, userId, existingPaginationId = null) {
+// Function to create catechism embed with page instructions
+function createCatechismEmbed(result, query, currentPage = 1) {
     let content = result.content;
     
     // Split content into pages if too long
-    const maxLength = 1900;
+    const maxLength = 1800; // Leave room for page instructions
     if (content.length > maxLength) {
         const pages = [];
         let currentPageContent = '';
@@ -723,22 +722,23 @@ function createCatechismEmbed(result, query, currentPage, totalPages, userId, ex
             pages.push(currentPageContent.trim());
         }
         
-        // Use existing pagination ID or create new one
-        let paginationId = existingPaginationId;
-        if (!paginationId) {
-            paginationId = `catechism_${userId}_${Date.now()}`;
-        }
-        
-        // Always update/create the pagination data
-        paginationStore.set(paginationId, {
-            pages: pages,
-            title: result.title,
-            query: query,
-            userId: userId,
-            expires: Date.now() + 600000 // 10 minutes
-        });
-        
+        // Show current page content
         content = pages[currentPage - 1] || pages[0];
+        
+        // Add page navigation instructions
+        if (pages.length > 1) {
+            const pageNumbers = [];
+            for (let i = 1; i <= pages.length; i++) {
+                if (i !== currentPage) {
+                    pageNumbers.push(i.toString());
+                }
+            }
+            
+            if (pageNumbers.length > 0) {
+                content += `\n\n📄 **This teaching continues on ${pages.length > 2 ? 'pages' : 'page'} ${pageNumbers.join(', ')}**\n`;
+                content += `Use: \`/catechism search query:"${query}" page:${pageNumbers[0]}\` to see more`;
+            }
+        }
         
         const embed = new EmbedBuilder()
             .setTitle(`🔍 ${result.title}`)
@@ -762,37 +762,7 @@ function createCatechismEmbed(result, query, currentPage, totalPages, userId, ex
             })
             .setTimestamp();
         
-        // Create buttons if there are multiple pages
-        const components = [];
-        if (pages.length > 1) {
-            const row = new ActionRowBuilder();
-            
-            if (currentPage > 1) {
-                row.addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(`catechism_prev_${paginationId}_${currentPage - 1}`)
-                        .setLabel('Previous Page')
-                        .setStyle(ButtonStyle.Secondary)
-                        .setEmoji('⬅️')
-                );
-            }
-            
-            if (currentPage < pages.length) {
-                row.addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(`catechism_next_${paginationId}_${currentPage + 1}`)
-                        .setLabel('Next Page')
-                        .setStyle(ButtonStyle.Primary)
-                        .setEmoji('➡️')
-                );
-            }
-            
-            if (row.components.length > 0) {
-                components.push(row);
-            }
-        }
-        
-        return { embeds: [embed], components: components };
+        return { embeds: [embed], components: [], totalPages: pages.length, pages: pages };
     } else {
         // Content fits in one page
         const embed = new EmbedBuilder()
@@ -810,7 +780,7 @@ function createCatechismEmbed(result, query, currentPage, totalPages, userId, ex
             })
             .setTimestamp();
         
-        return { embeds: [embed], components: [] };
+        return { embeds: [embed], components: [], totalPages: 1 };
     }
 }
 
@@ -1668,6 +1638,14 @@ const commands = [
                 type: 3, // STRING type
                 description: 'Search term or phrase (only needed when action is "search")',
                 required: false
+            },
+            {
+                name: 'page',
+                type: 4, // INTEGER type
+                description: 'Page number for multi-page results (1-10)',
+                required: false,
+                min_value: 1,
+                max_value: 10
             }
         ]
     },
@@ -2621,10 +2599,12 @@ client.on('interactionCreate', async interaction => {
                 if (!query || query.trim().length < 3) {
                     await interaction.editReply({
                         content: 'Please provide a search term with at least 3 characters when using the search action.',
-                        ephemeral: true
+                        flags: 64 // ephemeral flag
                     });
                     return;
                 }
+                
+                const pageNumber = interaction.options.getInteger('page') || 1;
                 
                 let results;
                 try {
@@ -2644,13 +2624,22 @@ client.on('interactionCreate', async interaction => {
                 
                 const bestResult = results[0];
                 
-                // Use pagination function for long content
-                const response = createCatechismEmbed(bestResult, query, 1, 1, interaction.user.id);
+                // Use new pagination function
+                const response = createCatechismEmbed(bestResult, query, pageNumber);
+                
+                // Check if requested page exists
+                if (response.totalPages && pageNumber > response.totalPages) {
+                    await interaction.editReply({
+                        content: `Page ${pageNumber} doesn't exist. This teaching has ${response.totalPages} pages. Try page 1-${response.totalPages}.`,
+                        flags: 64 // ephemeral flag
+                    });
+                    return;
+                }
                 
                 await interaction.editReply(response);
                 
                 const location = interaction.guild ? interaction.guild.name : 'DM';
-                console.log(`Catechism search command used by ${interaction.user.tag} in ${location} - Query: "${query}" - Results: ${results.length}`);
+                console.log(`Catechism search command used by ${interaction.user.tag} in ${location} - Query: "${query}" - Page: ${pageNumber} - Results: ${results.length}`);
             }
             
         } catch (error) {
@@ -2877,164 +2866,7 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-// Handle button interactions for pagination
-client.on('interactionCreate', async interaction => {
-    if (!interaction.isButton()) return;
-    
-    const customId = interaction.customId;
-    
-    // Handle catechism pagination buttons
-    if (customId.startsWith('catechism_next_') || customId.startsWith('catechism_prev_')) {
-        try {
-            const parts = customId.split('_');
-            const action = parts[1]; // 'next' or 'prev'
-            const paginationId = parts[2];
-            const pageNumber = parseInt(parts[3]);
-            
-            // Check if user is authorized and pagination data exists
-            const paginationData = paginationStore.get(paginationId);
-            if (!paginationData || paginationData.userId !== interaction.user.id) {
-                try {
-                    await interaction.reply({
-                        content: 'This pagination session has expired or you are not authorized to use it.',
-                        flags: 64 // ephemeral flag
-                    });
-                } catch (error) {
-                    console.error('Failed to send unauthorized message:', error.message);
-                }
-                return;
-            }
-            
-            // Check if pagination data has expired
-            if (Date.now() > paginationData.expires) {
-                paginationStore.delete(paginationId);
-                try {
-                    await interaction.reply({
-                        content: 'This pagination session has expired. Please search again.',
-                        flags: 64 // ephemeral flag
-                    });
-                } catch (error) {
-                    console.error('Failed to send expired message:', error.message);
-                }
-                return;
-            }
-            
-            // Get the content for the current page
-            const pageContent = paginationData.pages[pageNumber - 1];
-            if (!pageContent) {
-                try {
-                    await interaction.reply({
-                        content: 'Page not found!',
-                        flags: 64 // ephemeral flag
-                    });
-                } catch (error) {
-                    console.error('Failed to send page not found message:', error.message);
-                }
-                return;
-            }
-
-            // Create embed directly without calling createCatechismEmbed to avoid regenerating pagination
-            const embed = new EmbedBuilder()
-                .setTitle(`🔍 ${paginationData.title}`)
-                .setDescription(pageContent)
-                .setColor(0x8B0000)
-                .addFields(
-                    {
-                        name: '🔎 Search Query',
-                        value: `"${paginationData.query}"`,
-                        inline: true
-                    },
-                    {
-                        name: '📄 Page',
-                        value: `${pageNumber} of ${paginationData.pages.length}`,
-                        inline: true
-                    }
-                )
-                .setFooter({ 
-                    text: `Catechism of the Catholic Church`,
-                    iconURL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Coat_of_arms_Holy_See.svg/200px-Coat_of_arms_Holy_See.svg.png'
-                })
-                .setTimestamp();
-
-            // Create navigation buttons
-            const components = [];
-            if (paginationData.pages.length > 1) {
-                const row = new ActionRowBuilder();
-                
-                if (pageNumber > 1) {
-                    row.addComponents(
-                        new ButtonBuilder()
-                            .setCustomId(`catechism_prev_${paginationId}_${pageNumber - 1}`)
-                            .setLabel('Previous Page')
-                            .setStyle(ButtonStyle.Secondary)
-                            .setEmoji('⬅️')
-                    );
-                }
-                
-                if (pageNumber < paginationData.pages.length) {
-                    row.addComponents(
-                        new ButtonBuilder()
-                            .setCustomId(`catechism_next_${paginationId}_${pageNumber + 1}`)
-                            .setLabel('Next Page')
-                            .setStyle(ButtonStyle.Primary)
-                            .setEmoji('➡️')
-                    );
-                }
-                
-                if (row.components.length > 0) {
-                    components.push(row);
-                }
-            }
-
-            const response = { embeds: [embed], components: components };
-            
-            try {
-                await interaction.update(response);
-            } catch (error) {
-                console.error('Failed to update pagination:', error.message);
-                // Try to reply instead if update fails
-                try {
-                    await interaction.followUp({
-                        ...response,
-                        flags: 64 // ephemeral
-                    });
-                } catch (followUpError) {
-                    console.error('Failed to follow up:', followUpError.message);
-                }
-            }
-            
-            console.log(`Catechism pagination used by ${interaction.user.tag} - Page ${pageNumber} of ${paginationData.pages.length}`);
-            
-        } catch (error) {
-            console.error('Error in catechism pagination:', error.message);
-            try {
-                if (!interaction.replied && !interaction.deferred) {
-                    await interaction.reply({
-                        content: 'Sorry, something went wrong with pagination!',
-                        flags: 64 // ephemeral flag
-                    });
-                } else {
-                    await interaction.followUp({
-                        content: 'Sorry, something went wrong with pagination!',
-                        flags: 64 // ephemeral flag
-                    });
-                }
-            } catch (followUpError) {
-                console.error('Failed to send pagination error message:', followUpError.message);
-            }
-        }
-    }
-});
-
-// Clean up expired pagination data every 5 minutes
-setInterval(() => {
-    const now = Date.now();
-    for (const [key, data] of paginationStore.entries()) {
-        if (now > data.expires) {
-            paginationStore.delete(key);
-        }
-    }
-}, 300000); // 5 minutes
+// Note: Removed button pagination system - now using command-based page navigation
 
 // Error handling
 client.on('error', error => {
