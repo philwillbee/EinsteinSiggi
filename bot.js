@@ -24,6 +24,22 @@ try {
     console.warn('Could not load catechism data:', error.message);
 }
 
+// Load Mallon's messages data
+let mallonData = null;
+try {
+    const mallonJson = fs.readFileSync('./mallon_messages.json', 'utf8');
+    const fullData = JSON.parse(mallonJson);
+    // Extract only messages from the user "bellringingenthusiast" (Siggi)
+    mallonData = fullData.messages.filter(msg => 
+        msg.author.name === 'bellringingenthusiast' && 
+        msg.content && 
+        msg.content.trim() !== ''
+    );
+    console.log(`Mallon data loaded successfully - ${mallonData.length} messages`);
+} catch (error) {
+    console.warn('Could not load mallon data:', error.message);
+}
+
 // Note: Removed pagination store - now using direct command-based navigation
 
 // Only load dotenv in development (not on Railway)
@@ -1784,6 +1800,12 @@ const commands = [
                 required: true
             }
         ]
+    },
+    {
+        name: 'mallon',
+        description: 'Get a random message from Mallon\'s Discord history',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
     }
 ];
 
@@ -3022,6 +3044,41 @@ client.on('interactionCreate', async interaction => {
             } catch {
                 console.error('Failed to send error message to user');
             }
+        }
+    } else if (commandName === 'mallon') {
+        try {
+            if (!mallonData || mallonData.length === 0) {
+                await interaction.reply({ 
+                    content: 'Sorry, Mallon\'s message data is not available.', 
+                    ephemeral: true 
+                });
+                return;
+            }
+
+            // Select a random message from Mallon's data
+            const randomMessage = mallonData[Math.floor(Math.random() * mallonData.length)];
+            
+            // Format the timestamp to a readable date
+            const messageDate = new Date(randomMessage.timestamp);
+            const formattedDate = messageDate.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+
+            // Create the response with the message and small date text
+            const response = `${randomMessage.content}\n\`${formattedDate}\``;
+
+            await interaction.reply(response);
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Mallon command used by ${interaction.user.tag} in ${location} - Message from ${formattedDate}`);
+        } catch (error) {
+            console.error('Error in mallon command:', error);
+            await interaction.reply({ 
+                content: 'Sorry, something went wrong getting a message from Mallon\'s history!', 
+                ephemeral: true 
+            });
         }
     }
 });
