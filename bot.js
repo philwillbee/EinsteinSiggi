@@ -784,6 +784,102 @@ function createCatechismEmbed(result, query, currentPage = 1) {
     }
 }
 
+// Function to get today's liturgical calendar
+async function getTodaysLiturgicalCalendar() {
+    try {
+        const today = new Date();
+        const year = today.getFullYear();
+        
+        // Use the Liturgical Calendar API
+        const response = await axios.get(`https://litcal.johnromanodorazio.com/api/v3/LitCalEngine.php?year=${year}`, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (compatible; SiggiBot/1.0)'
+            }
+        });
+        
+        if (response.data && response.data.litcal) {
+            // Find today's entry
+            const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+            const todayEntry = Object.values(response.data.litcal).find(entry => {
+                const entryDate = new Date(entry.date * 1000).toISOString().split('T')[0];
+                return entryDate === todayStr;
+            });
+            
+            if (todayEntry) {
+                return {
+                    date: new Date(todayEntry.date * 1000),
+                    name: todayEntry.name,
+                    color: todayEntry.color || 'white',
+                    grade: todayEntry.grade || 0,
+                    rank: todayEntry.rank || 'Weekday',
+                    liturgicalSeason: response.data.settings?.locale || 'Ordinary Time'
+                };
+            }
+        }
+        
+        // Fallback if API fails
+        return {
+            date: today,
+            name: 'Weekday in Ordinary Time',
+            color: 'green',
+            grade: 0,
+            rank: 'Weekday',
+            liturgicalSeason: 'Ordinary Time'
+        };
+        
+    } catch (error) {
+        console.error('Error fetching liturgical calendar:', error.message);
+        
+        // Simple fallback based on the date
+        const today = new Date();
+        const month = today.getMonth() + 1; // 1-12
+        const day = today.getDate();
+        
+        let liturgicalInfo = {
+            date: today,
+            name: 'Weekday in Ordinary Time',
+            color: 'green',
+            grade: 0,
+            rank: 'Weekday',
+            liturgicalSeason: 'Ordinary Time'
+        };
+        
+        // Basic seasonal detection
+        if ((month === 12 && day >= 17) || (month === 1 && day <= 13)) {
+            liturgicalInfo.liturgicalSeason = 'Christmas Season';
+            liturgicalInfo.color = 'white';
+            liturgicalInfo.name = 'Weekday of Christmas Season';
+        } else if ((month === 2 && day >= 14) || (month === 3) || (month === 4 && day <= 20)) {
+            liturgicalInfo.liturgicalSeason = 'Lent';
+            liturgicalInfo.color = 'purple';
+            liturgicalInfo.name = 'Weekday of Lent';
+        } else if ((month === 4 && day >= 21) || (month === 5) || (month === 6 && day <= 10)) {
+            liturgicalInfo.liturgicalSeason = 'Easter Season';
+            liturgicalInfo.color = 'white';
+            liturgicalInfo.name = 'Weekday of Easter Season';
+        }
+        
+        return liturgicalInfo;
+    }
+}
+
+// Function to get liturgical color as Discord embed color
+function getLiturgicalColor(colorName) {
+    const colors = {
+        'white': 0xFFFFFF,
+        'red': 0xDC143C,
+        'green': 0x228B22,
+        'purple': 0x800080,
+        'violet': 0x800080,
+        'rose': 0xFFB6C1,
+        'pink': 0xFFB6C1,
+        'gold': 0xFFD700,
+        'yellow': 0xFFD700
+    };
+    
+    return colors[colorName.toLowerCase()] || 0x228B22; // Default to green
+}
+
 // Function to get saint image - filter out Google UI elements
 async function getSaintImage(saintName) {
     console.log(`Getting saint image for: ${saintName}`);
@@ -1648,6 +1744,12 @@ const commands = [
                 max_value: 10
             }
         ]
+    },
+    {
+        name: 'today',
+        description: 'Get today\'s liturgical calendar and saint of the day',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
     },
     {
         name: 'yookay',
@@ -2653,6 +2755,64 @@ client.on('interactionCreate', async interaction => {
                 
                 await interaction.editReply({
                     content: errorMessage
+                });
+            } catch {
+                console.error('Failed to send error message to user');
+            }
+        }
+    } else if (commandName === 'today') {
+        try {
+            await interaction.deferReply();
+            
+            const liturgicalData = await getTodaysLiturgicalCalendar();
+            
+            const embed = new EmbedBuilder()
+                .setTitle(`📅 Today's Liturgical Calendar`)
+                .setDescription(`**${liturgicalData.name}**`)
+                .setColor(getLiturgicalColor(liturgicalData.color))
+                .addFields(
+                    {
+                        name: '📅 Date',
+                        value: liturgicalData.date.toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                        }),
+                        inline: true
+                    },
+                    {
+                        name: '🎨 Liturgical Color',
+                        value: liturgicalData.color.charAt(0).toUpperCase() + liturgicalData.color.slice(1),
+                        inline: true
+                    },
+                    {
+                        name: '⛪ Rank',
+                        value: liturgicalData.rank,
+                        inline: true
+                    },
+                    {
+                        name: '🕊️ Season',
+                        value: liturgicalData.liturgicalSeason,
+                        inline: false
+                    }
+                )
+                .setFooter({ 
+                    text: `Roman Catholic Liturgical Calendar`,
+                    iconURL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Coat_of_arms_Holy_See.svg/200px-Coat_of_arms_Holy_See.svg.png'
+                })
+                .setTimestamp();
+            
+            await interaction.editReply({ embeds: [embed] });
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Today command used by ${interaction.user.tag} in ${location} - ${liturgicalData.name}`);
+            
+        } catch (error) {
+            console.error('Error in today command:', error);
+            try {
+                await interaction.editReply({
+                    content: 'Sorry, something went wrong while getting today\'s liturgical calendar! ✝️',
                 });
             } catch {
                 console.error('Failed to send error message to user');
