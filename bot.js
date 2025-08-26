@@ -9,6 +9,8 @@ global.File = class File extends Blob {
 const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, REST, Routes, ActivityType, Partials } = require('discord.js');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const QRCode = require('qrcode');
+const figlet = require('figlet');
 
 // Only load dotenv in development (not on Railway)
 if (process.env.NODE_ENV !== 'production') {
@@ -1178,6 +1180,47 @@ const commands = [
         ]
     },
     {
+        name: 'qr',
+        description: 'Generate a QR code from text or URL',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'text',
+                type: 3, // STRING type
+                description: 'Text or URL to convert to QR code',
+                required: true
+            }
+        ]
+    },
+    {
+        name: 'ascii',
+        description: 'Convert text to ASCII art',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'text',
+                type: 3, // STRING type
+                description: 'Text to convert to ASCII art',
+                required: true
+            },
+            {
+                name: 'font',
+                type: 3, // STRING type
+                description: 'ASCII art font style',
+                required: false,
+                choices: [
+                    { name: 'Standard', value: 'Standard' },
+                    { name: 'Big', value: 'Big' },
+                    { name: 'Small', value: 'Small' },
+                    { name: 'Block', value: 'Block' },
+                    { name: 'Doom', value: 'Doom' }
+                ]
+            }
+        ]
+    },
+    {
         name: 'fart',
         description: 'Fart on someone',
         integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
@@ -1482,6 +1525,88 @@ client.on('interactionCreate', async interaction => {
             console.error('Error in base64 command:', error);
             await interaction.reply({ 
                 content: 'Sorry, something went wrong with base64 processing!', 
+                ephemeral: true 
+            });
+        }
+    } else if (commandName === 'qr') {
+        try {
+            const text = interaction.options.getString('text');
+            
+            // Generate QR code as data URL
+            const qrDataURL = await QRCode.toDataURL(text, {
+                width: 300,
+                margin: 2,
+                color: {
+                    dark: '#000000',
+                    light: '#FFFFFF'
+                }
+            });
+            
+            // Convert data URL to buffer for Discord attachment
+            const base64Data = qrDataURL.replace(/^data:image\/png;base64,/, '');
+            const qrBuffer = Buffer.from(base64Data, 'base64');
+            
+            // Create embed
+            const embed = new EmbedBuilder()
+                .setTitle('📱 QR Code Generated')
+                .setDescription(`**Content:** ${text.length > 100 ? text.substring(0, 100) + '...' : text}`)
+                .setColor(0x000000)
+                .setImage('attachment://qrcode.png')
+                .setFooter({ text: `Requested by ${interaction.user.displayName}` });
+            
+            await interaction.reply({ 
+                embeds: [embed],
+                files: [{
+                    attachment: qrBuffer,
+                    name: 'qrcode.png'
+                }]
+            });
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`QR command used by ${interaction.user.tag} in ${location} - Content: ${text.substring(0, 50)}`);
+        } catch (error) {
+            console.error('Error in QR command:', error);
+            await interaction.reply({ 
+                content: 'Sorry, something went wrong generating the QR code!', 
+                ephemeral: true 
+            });
+        }
+    } else if (commandName === 'ascii') {
+        try {
+            const text = interaction.options.getString('text');
+            const font = interaction.options.getString('font') || 'Standard';
+            
+            if (text.length > 20) {
+                return await interaction.reply({ 
+                    content: 'Text too long! Please keep it under 20 characters for best results.', 
+                    ephemeral: true 
+                });
+            }
+            
+            // Generate ASCII art
+            figlet.text(text, { font: font }, (err, asciiArt) => {
+                if (err) {
+                    console.error('Figlet error:', err);
+                    return interaction.reply({ 
+                        content: 'Sorry, something went wrong generating ASCII art!', 
+                        ephemeral: true 
+                    });
+                }
+                
+                // Ensure ASCII art fits in Discord's 2000 character limit
+                if (asciiArt.length > 1900) {
+                    asciiArt = asciiArt.substring(0, 1900) + '...';
+                }
+                
+                interaction.reply(`\`\`\`\n${asciiArt}\n\`\`\``);
+                
+                const location = interaction.guild ? interaction.guild.name : 'DM';
+                console.log(`ASCII command used by ${interaction.user.tag} in ${location} - Text: ${text}, Font: ${font}`);
+            });
+        } catch (error) {
+            console.error('Error in ASCII command:', error);
+            await interaction.reply({ 
+                content: 'Sorry, something went wrong generating ASCII art!', 
                 ephemeral: true 
             });
         }
