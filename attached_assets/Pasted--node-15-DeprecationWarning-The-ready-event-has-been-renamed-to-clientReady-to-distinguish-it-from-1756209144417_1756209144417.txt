@@ -1,0 +1,33 @@
+(node:15) DeprecationWarning: The ready event has been renamed to clientReady to distinguish it from the gateway READY event and will only emit under that name in v15. Please use clientReady instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Successfully reloaded global application (/) commands.
+Error in catechism command: DiscordAPIError[10062]: Unknown interaction
+    at handleErrors (/app/node_modules/@discordjs/rest/dist/index.js:762:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async BurstHandler.runRequest (/app/node_modules/@discordjs/rest/dist/index.js:866:23)
+    at async _REST.request (/app/node_modules/@discordjs/rest/dist/index.js:1307:22)
+    at async ChatInputCommandInteraction.deferReply (/app/node_modules/discord.js/src/structures/interfaces/InteractionResponses.js:129:22)
+    at async Client.<anonymous> (/app/bot.js:2590:13) {
+  requestBody: { files: undefined, json: { type: 5, data: [Object] } },
+  rawError: { message: 'Unknown interaction', code: 10062 },
+  code: 10062,
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+  status: 404,
+  method: 'POST',
+  url: 'https://discord.com/api/v10/interactions/1409867550711353447/aW50ZXJhY3Rpb246MTQwOTg2NzU1MDcxMTM1MzQ0NzozSXZVVkpHNXFCNnUwYVphakhTOUpvWHl4OEdNa0ZTaXo5V3hvN3djT3JnT2pKQkdDdmxqVDFzRTBQZG9JODBCZDVSd2FyNUpxRGZOSnJsUUlKTG5OdWdWT1hQNjlYMFJHdWwwYnVHNUxBTUU5eHZKbnpsQ3hyYTNIR0trUXlkMg/callback?with_response=false';
+}
+Failed to send error message to user
+Error in catechism pagination: DiscordAPIError[10062]: Unknown interaction
+    at handleErrors (/app/node_modules/@discordjs/rest/dist/index.js:762:13)
+    at async BurstHandler.runRequest (/app/node_modules/@discordjs/rest/dist/index.js:866:23)
+    at async _REST.request (/app/node_modules/@discordjs/rest/dist/index.js:1307:22)
+    at async ButtonInteraction.reply (/app/node_modules/discord.js/src/structures/interfaces/InteractionResponses.js:200:22)
+    at async Client.<anonymous> (/app/bot.js:2897:17) {
+  requestBody: { files: [], json: { type: 4, data: [Object] } },
+  rawError: { message: 'Unknown interaction', code: 10062 },
+  code: 10062,
+  status: 404,
+  method: 'POST',
+  url: 'https://discord.com/api/v10/interactions/1409867563445391400/aW50ZXJhY3Rpb246MTQwOTg2NzU2MzQ0NTM5MTQwMDpHS1Z5bWIxdFduYzBWWnJhNHh1WUViU25sZERaMGFqbDhZZnVmT2dVbFlkZ3hMOTFwWGphbXpXUUNTR3pISjF1T2lRYzNLbFhaMkt4OE1UdEg0R0R0SHR0Ymd3MWR6NUZqQmxIYmllRElHRnc4ODU5RU5sWkZ1dThuVEN3YmNPdw/callback?with_response=false';
+}
+Failed to send pagination error message

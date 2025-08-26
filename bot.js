@@ -2586,11 +2586,11 @@ client.on('interactionCreate', async interaction => {
         }
     } else if (commandName === 'catechism') {
         try {
-            // Defer the response as this might take a moment
-            await interaction.deferReply();
-            
             const action = interaction.options.getString('action');
             const query = interaction.options.getString('query');
+            
+            // Defer the response immediately
+            await interaction.deferReply();
             
             if (action === 'random') {
                 // Get random catechism teaching
@@ -2894,30 +2894,42 @@ client.on('interactionCreate', async interaction => {
             // Check if user is authorized and pagination data exists
             const paginationData = paginationStore.get(paginationId);
             if (!paginationData || paginationData.userId !== interaction.user.id) {
-                await interaction.reply({
-                    content: 'This pagination session has expired or you are not authorized to use it.',
-                    flags: 64 // ephemeral flag
-                });
+                try {
+                    await interaction.reply({
+                        content: 'This pagination session has expired or you are not authorized to use it.',
+                        flags: 64 // ephemeral flag
+                    });
+                } catch (error) {
+                    console.error('Failed to send unauthorized message:', error.message);
+                }
                 return;
             }
             
             // Check if pagination data has expired
             if (Date.now() > paginationData.expires) {
                 paginationStore.delete(paginationId);
-                await interaction.reply({
-                    content: 'This pagination session has expired. Please search again.',
-                    flags: 64 // ephemeral flag
-                });
+                try {
+                    await interaction.reply({
+                        content: 'This pagination session has expired. Please search again.',
+                        flags: 64 // ephemeral flag
+                    });
+                } catch (error) {
+                    console.error('Failed to send expired message:', error.message);
+                }
                 return;
             }
             
             // Get the content for the current page
             const pageContent = paginationData.pages[pageNumber - 1];
             if (!pageContent) {
-                await interaction.reply({
-                    content: 'Page not found!',
-                    flags: 64 // ephemeral flag
-                });
+                try {
+                    await interaction.reply({
+                        content: 'Page not found!',
+                        flags: 64 // ephemeral flag
+                    });
+                } catch (error) {
+                    console.error('Failed to send page not found message:', error.message);
+                }
                 return;
             }
 
@@ -2976,19 +2988,39 @@ client.on('interactionCreate', async interaction => {
 
             const response = { embeds: [embed], components: components };
             
-            await interaction.update(response);
+            try {
+                await interaction.update(response);
+            } catch (error) {
+                console.error('Failed to update pagination:', error.message);
+                // Try to reply instead if update fails
+                try {
+                    await interaction.followUp({
+                        ...response,
+                        flags: 64 // ephemeral
+                    });
+                } catch (followUpError) {
+                    console.error('Failed to follow up:', followUpError.message);
+                }
+            }
             
             console.log(`Catechism pagination used by ${interaction.user.tag} - Page ${pageNumber} of ${paginationData.pages.length}`);
             
         } catch (error) {
-            console.error('Error in catechism pagination:', error);
+            console.error('Error in catechism pagination:', error.message);
             try {
-                await interaction.reply({
-                    content: 'Sorry, something went wrong with pagination!',
-                    flags: 64 // ephemeral flag
-                });
-            } catch {
-                console.error('Failed to send pagination error message');
+                if (!interaction.replied && !interaction.deferred) {
+                    await interaction.reply({
+                        content: 'Sorry, something went wrong with pagination!',
+                        flags: 64 // ephemeral flag
+                    });
+                } else {
+                    await interaction.followUp({
+                        content: 'Sorry, something went wrong with pagination!',
+                        flags: 64 // ephemeral flag
+                    });
+                }
+            } catch (followUpError) {
+                console.error('Failed to send pagination error message:', followUpError.message);
             }
         }
     }
