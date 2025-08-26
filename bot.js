@@ -13,6 +13,7 @@ const QRCode = require('qrcode');
 const figlet = require('figlet');
 const crypto = require('crypto');
 const fs = require('fs');
+const OpenAI = require('openai');
 
 // Load Catechism data
 let catechismData = null;
@@ -46,6 +47,11 @@ try {
 if (process.env.NODE_ENV !== 'production') {
     require('dotenv').config();
 }
+
+// Initialize OpenAI
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+});
 
 // Create a new client instance
 const client = new Client({
@@ -1806,6 +1812,20 @@ const commands = [
         description: 'Get a random message from Mallon\'s Discord history',
         integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
         contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
+    },
+    {
+        name: 'chat',
+        description: 'Chat with an AI trained on Mallon\'s personality',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'message',
+                type: 3, // STRING type
+                description: 'What do you want to say?',
+                required: true
+            }
+        ]
     }
 ];
 
@@ -3080,8 +3100,81 @@ client.on('interactionCreate', async interaction => {
                 ephemeral: true 
             });
         }
+    } else if (commandName === 'chat') {
+        try {
+            await interaction.deferReply();
+            
+            const userMessage = interaction.options.getString('message');
+            
+            if (!mallonData || mallonData.length === 0) {
+                await interaction.editReply('Sorry, I don\'t have enough data to chat as Mallon right now.');
+                return;
+            }
+
+            // Generate AI response based on Mallon's personality
+            const aiResponse = await generateMallonResponse(userMessage);
+            
+            await interaction.editReply(aiResponse);
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Chat command used by ${interaction.user.tag} in ${location} - Message: "${userMessage}"`);
+        } catch (error) {
+            console.error('Error in chat command:', error);
+            try {
+                await interaction.editReply('Sorry, something went wrong while generating a response. Please try again.');
+            } catch {
+                console.error('Failed to send error message to user');
+            }
+        }
     }
 });
+
+// Function to generate AI response in Mallon's style
+async function generateMallonResponse(userMessage) {
+    try {
+        // Get a sample of Mallon's messages to provide context
+        const sampleSize = 50;
+        const shuffled = [...mallonData].sort(() => 0.5 - Math.random());
+        const sampleMessages = shuffled.slice(0, sampleSize).map(msg => msg.content);
+        
+        // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+        const response = await openai.chat.completions.create({
+            model: "gpt-5",
+            messages: [
+                {
+                    role: "system",
+                    content: `You are roleplaying as someone based on their Discord message history. Your personality, humor, vocabulary, and way of speaking should be derived ONLY from these example messages. Never break character or mention that you're an AI. Respond naturally as this person would, using their tone and style.
+
+Example messages from this person:
+${sampleMessages.join('\n')}
+
+Key traits to emulate:
+- Use their exact vocabulary and slang
+- Match their humor style and personality
+- Keep responses conversational and natural
+- Stay true to their voice and manner of speaking
+- Never generate content that doesn't fit their established personality
+
+Respond to the user's message as this person would.`
+                },
+                {
+                    role: "user",
+                    content: userMessage
+                }
+            ],
+            max_tokens: 150,
+            temperature: 0.8
+        });
+
+        return response.choices[0].message.content;
+    } catch (error) {
+        console.error('Error generating AI response:', error);
+        
+        // Fallback: return a random actual message as backup
+        const randomMessage = mallonData[Math.floor(Math.random() * mallonData.length)];
+        return randomMessage.content;
+    }
+}
 
 // Note: Removed button pagination system - now using command-based page navigation
 
