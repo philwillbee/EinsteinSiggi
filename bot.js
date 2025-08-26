@@ -1198,7 +1198,7 @@ function generateBellringerBossScan(user) {
             '🔔 Bell-Ringing Autism Spectrum Overload Detected',
             '🚗 Kia Sportage Electric: Peak Midlife Crisis Manifestation',
             '🧠 Cranium Size: MASSIVELY OVERSIZED (Compensating for Empty Contents)',
-            '🌈 Closeted Homosexual Energy Levels: MAXIMUM DETECTED',
+            '🌈 GayUK Discord Member: Openly Fabulous Energy Detected',
             '📚 Pseudo-Intellectual Gaseous Emissions: TOXIC LEVELS',
             '💼 Toff Status: CONFIRMED TRUST FUND BABY',
             '🤓 Geek-Nerd Classification: WEAPONIZED AUTISM VARIANT'
