@@ -6,7 +6,7 @@ global.File = class File extends Blob {
   }
 };
 
-const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, REST, Routes, ActivityType, Partials } = require('discord.js');
+const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, REST, Routes, ActivityType, Partials, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const QRCode = require('qrcode');
@@ -23,6 +23,9 @@ try {
 } catch (error) {
     console.warn('Could not load catechism data:', error.message);
 }
+
+// Store for pagination data
+const paginationStore = new Map();
 
 // Only load dotenv in development (not on Railway)
 if (process.env.NODE_ENV !== 'production') {
@@ -622,6 +625,121 @@ async function fallbackCatechismSearch(query) {
             content: `Unable to find specific teaching for "${query}". Please refer to the official Catechism of the Catholic Church at https://www.vatican.va/archive/ENG0015/_INDEX.HTM`,
             source: 'vatican.va'
         };
+    }
+}
+
+// Function to create paginated catechism embed
+function createCatechismEmbed(result, query, currentPage, totalPages, userId) {
+    let content = result.content;
+    
+    // Split content into pages if too long
+    const maxLength = 1900;
+    if (content.length > maxLength) {
+        const pages = [];
+        let currentPageContent = '';
+        const sentences = content.split('. ');
+        
+        for (let sentence of sentences) {
+            if ((currentPageContent + sentence + '. ').length > maxLength) {
+                if (currentPageContent) {
+                    pages.push(currentPageContent.trim());
+                    currentPageContent = sentence + '. ';
+                } else {
+                    // Single sentence is too long, split it
+                    pages.push(sentence.substring(0, maxLength) + '...');
+                }
+            } else {
+                currentPageContent += sentence + '. ';
+            }
+        }
+        
+        if (currentPageContent) {
+            pages.push(currentPageContent.trim());
+        }
+        
+        // Store pagination data
+        const paginationId = `catechism_${userId}_${Date.now()}`;
+        paginationStore.set(paginationId, {
+            pages: pages,
+            title: result.title,
+            query: query,
+            userId: userId,
+            expires: Date.now() + 600000 // 10 minutes
+        });
+        
+        content = pages[currentPage - 1] || pages[0];
+        
+        const embed = new EmbedBuilder()
+            .setTitle(`🔍 ${result.title}`)
+            .setDescription(content)
+            .setColor(0x8B0000)
+            .addFields(
+                {
+                    name: '🔎 Search Query',
+                    value: `"${query}"`,
+                    inline: true
+                },
+                {
+                    name: '📄 Page',
+                    value: `${currentPage} of ${pages.length}`,
+                    inline: true
+                }
+            )
+            .setFooter({ 
+                text: `Catechism of the Catholic Church`,
+                iconURL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Coat_of_arms_Holy_See.svg/200px-Coat_of_arms_Holy_See.svg.png'
+            })
+            .setTimestamp();
+        
+        // Create buttons if there are multiple pages
+        const components = [];
+        if (pages.length > 1) {
+            const row = new ActionRowBuilder();
+            
+            if (currentPage > 1) {
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`catechism_prev_${paginationId}_${currentPage - 1}`)
+                        .setLabel('Previous Page')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setEmoji('⬅️')
+                );
+            }
+            
+            if (currentPage < pages.length) {
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`catechism_next_${paginationId}_${currentPage + 1}`)
+                        .setLabel('Next Page')
+                        .setStyle(ButtonStyle.Primary)
+                        .setEmoji('➡️')
+                );
+            }
+            
+            if (row.components.length > 0) {
+                components.push(row);
+            }
+        }
+        
+        return { embeds: [embed], components: components };
+    } else {
+        // Content fits in one page
+        const embed = new EmbedBuilder()
+            .setTitle(`🔍 ${result.title}`)
+            .setDescription(content)
+            .setColor(0x8B0000)
+            .addFields({
+                name: '🔎 Search Query',
+                value: `"${query}"`,
+                inline: true
+            })
+            .setFooter({ 
+                text: `Catechism of the Catholic Church`,
+                iconURL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Coat_of_arms_Holy_See.svg/200px-Coat_of_arms_Holy_See.svg.png'
+            })
+            .setTimestamp();
+        
+        return { embeds: [embed], components: [] };
     }
 }
 
@@ -2455,37 +2573,10 @@ client.on('interactionCreate', async interaction => {
                 
                 const bestResult = results[0];
                 
-                // Truncate content if too long for Discord embed
-                let content = bestResult.content;
-                if (content.length > 1900) {
-                    content = content.substring(0, 1900) + '...';
-                }
+                // Use pagination function for long content
+                const response = createCatechismEmbed(bestResult, query, 1, 1, interaction.user.id);
                 
-                const embed = new EmbedBuilder()
-                    .setTitle(`🔍 ${bestResult.title}`)
-                    .setDescription(content)
-                    .setColor(0x8B0000) // Dark red color for Catholic theme
-                    .addFields({
-                        name: '🔎 Search Query',
-                        value: `"${query}"`,
-                        inline: true
-                    });
-                
-                if (results.length > 1) {
-                    embed.addFields({
-                        name: '📚 Additional Results',
-                        value: `Found ${results.length} related teachings`,
-                        inline: true
-                    });
-                }
-                
-                embed.setFooter({ 
-                    text: `Requested by ${interaction.user.displayName} • Catechism of the Catholic Church`,
-                    iconURL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Coat_of_arms_Holy_See.svg/200px-Coat_of_arms_Holy_See.svg.png'
-                })
-                .setTimestamp();
-                
-                await interaction.editReply({ embeds: [embed] });
+                await interaction.editReply(response);
                 
                 const location = interaction.guild ? interaction.guild.name : 'DM';
                 console.log(`Catechism search command used by ${interaction.user.tag} in ${location} - Query: "${query}" - Results: ${results.length}`);
@@ -2714,6 +2805,76 @@ client.on('interactionCreate', async interaction => {
         }
     }
 });
+
+// Handle button interactions for pagination
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isButton()) return;
+    
+    const customId = interaction.customId;
+    
+    // Handle catechism pagination buttons
+    if (customId.startsWith('catechism_next_') || customId.startsWith('catechism_prev_')) {
+        try {
+            const parts = customId.split('_');
+            const action = parts[1]; // 'next' or 'prev'
+            const paginationId = parts[2];
+            const pageNumber = parseInt(parts[3]);
+            
+            // Check if user is authorized and pagination data exists
+            const paginationData = paginationStore.get(paginationId);
+            if (!paginationData || paginationData.userId !== interaction.user.id) {
+                await interaction.reply({
+                    content: 'This pagination session has expired or you are not authorized to use it.',
+                    ephemeral: true
+                });
+                return;
+            }
+            
+            // Check if pagination data has expired
+            if (Date.now() > paginationData.expires) {
+                paginationStore.delete(paginationId);
+                await interaction.reply({
+                    content: 'This pagination session has expired. Please search again.',
+                    ephemeral: true
+                });
+                return;
+            }
+            
+            // Create the paginated embed
+            const result = {
+                title: paginationData.title,
+                content: paginationData.pages[pageNumber - 1]
+            };
+            
+            const response = createCatechismEmbed(result, paginationData.query, pageNumber, paginationData.pages.length, interaction.user.id);
+            
+            await interaction.update(response);
+            
+            console.log(`Catechism pagination used by ${interaction.user.tag} - Page ${pageNumber} of ${paginationData.pages.length}`);
+            
+        } catch (error) {
+            console.error('Error in catechism pagination:', error);
+            try {
+                await interaction.reply({
+                    content: 'Sorry, something went wrong with pagination!',
+                    ephemeral: true
+                });
+            } catch {
+                console.error('Failed to send pagination error message');
+            }
+        }
+    }
+});
+
+// Clean up expired pagination data every 5 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, data] of paginationStore.entries()) {
+        if (now > data.expires) {
+            paginationStore.delete(key);
+        }
+    }
+}, 300000); // 5 minutes
 
 // Error handling
 client.on('error', error => {
