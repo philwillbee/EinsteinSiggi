@@ -727,14 +727,16 @@ function createCatechismEmbed(result, query, currentPage, totalPages, userId, ex
         let paginationId = existingPaginationId;
         if (!paginationId) {
             paginationId = `catechism_${userId}_${Date.now()}`;
-            paginationStore.set(paginationId, {
-                pages: pages,
-                title: result.title,
-                query: query,
-                userId: userId,
-                expires: Date.now() + 600000 // 10 minutes
-            });
         }
+        
+        // Always update/create the pagination data
+        paginationStore.set(paginationId, {
+            pages: pages,
+            title: result.title,
+            query: query,
+            userId: userId,
+            expires: Date.now() + 600000 // 10 minutes
+        });
         
         content = pages[currentPage - 1] || pages[0];
         
@@ -2909,13 +2911,70 @@ client.on('interactionCreate', async interaction => {
                 return;
             }
             
-            // Create the paginated embed
-            const result = {
-                title: paginationData.title,
-                content: paginationData.pages[pageNumber - 1]
-            };
-            
-            const response = createCatechismEmbed(result, paginationData.query, pageNumber, paginationData.pages.length, interaction.user.id, paginationId);
+            // Get the content for the current page
+            const pageContent = paginationData.pages[pageNumber - 1];
+            if (!pageContent) {
+                await interaction.reply({
+                    content: 'Page not found!',
+                    flags: 64 // ephemeral flag
+                });
+                return;
+            }
+
+            // Create embed directly without calling createCatechismEmbed to avoid regenerating pagination
+            const embed = new EmbedBuilder()
+                .setTitle(`🔍 ${paginationData.title}`)
+                .setDescription(pageContent)
+                .setColor(0x8B0000)
+                .addFields(
+                    {
+                        name: '🔎 Search Query',
+                        value: `"${paginationData.query}"`,
+                        inline: true
+                    },
+                    {
+                        name: '📄 Page',
+                        value: `${pageNumber} of ${paginationData.pages.length}`,
+                        inline: true
+                    }
+                )
+                .setFooter({ 
+                    text: `Catechism of the Catholic Church`,
+                    iconURL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Coat_of_arms_Holy_See.svg/200px-Coat_of_arms_Holy_See.svg.png'
+                })
+                .setTimestamp();
+
+            // Create navigation buttons
+            const components = [];
+            if (paginationData.pages.length > 1) {
+                const row = new ActionRowBuilder();
+                
+                if (pageNumber > 1) {
+                    row.addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`catechism_prev_${paginationId}_${pageNumber - 1}`)
+                            .setLabel('Previous Page')
+                            .setStyle(ButtonStyle.Secondary)
+                            .setEmoji('⬅️')
+                    );
+                }
+                
+                if (pageNumber < paginationData.pages.length) {
+                    row.addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`catechism_next_${paginationId}_${pageNumber + 1}`)
+                            .setLabel('Next Page')
+                            .setStyle(ButtonStyle.Primary)
+                            .setEmoji('➡️')
+                    );
+                }
+                
+                if (row.components.length > 0) {
+                    components.push(row);
+                }
+            }
+
+            const response = { embeds: [embed], components: components };
             
             await interaction.update(response);
             
