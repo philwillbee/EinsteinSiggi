@@ -3193,22 +3193,12 @@ client.on('interactionCreate', async interaction => {
             // Pick random explosion GIF
             const randomExplosion = explosionGifs[Math.floor(Math.random() * explosionGifs.length)];
             
-            // Create dramatic explosion embed
+            // Create simple explosion embed
             const embed = new EmbedBuilder()
                 .setTitle('💥 BOOM! 💥')
-                .setDescription(`**${targetUser.displayName} has been OBLITERATED!** 🔥\n\n💀 *Goodbye cruel world...* 💀`)
                 .setColor(0xFF4500) // Red-orange explosion color
                 .setImage(randomExplosion)
-                .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }))
-                .addFields({
-                    name: '💣 EXPLOSION REPORT',
-                    value: `\`\`\`diff\n+ Target: ${targetUser.displayName}\n+ Status: VAPORIZED\n+ Explosion Radius: 500m\n+ Casualties: 1\n+ Survivors: 0\n\`\`\``,
-                    inline: false
-                })
-                .setFooter({ 
-                    text: `💥 Boom executed by ${interaction.user.displayName} • RIP ${targetUser.displayName}` 
-                })
-                .setTimestamp();
+                .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }));
 
             await interaction.reply({ embeds: [embed] });
             
