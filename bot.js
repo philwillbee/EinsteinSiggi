@@ -1069,6 +1069,11 @@ function generateCyberUpgrade(user) {
 
 // Function to generate cyberscan data for a user
 function generateCyberScan(user) {
+    // Special case for @.smiledog. - malfunction mode
+    if (user.id === '859499287816962058') {
+        return generateMalfunctionedScan(user);
+    }
+    
     // Generate deterministic "random" values based on user ID for consistency
     const seed = parseInt(user.id.slice(-8), 16);
     const rng = (n) => (seed * 9301 + 49297 + n * 233280) % 233280 / 233280;
@@ -1136,6 +1141,32 @@ function generateCyberScan(user) {
         installedImplants,
         detectedWeaknesses,
         scanProgress
+    };
+}
+
+// Special malfunctioned cyberscan for @.smiledog.
+function generateMalfunctionedScan(user) {
+    return {
+        energyLevel: 3,
+        cyberLevel: 0,
+        threatLevel: 1,
+        heartRate: 145, // Unhealthily high
+        bodyTemp: "39.8", // Feverish 
+        brainActivity: 12, // Barely functioning
+        installedImplants: ['CORRUPTED_DATA_####', 'NULL_POINTER_EXCEPTION', 'SYSTEM_FAILURE_0x001'],
+        detectedWeaknesses: [
+            'Critical System Malfunction Detected',
+            'Subject Classification: Unemployed Organic Waste Unit',
+            'Warning: High Levels of Curry-Based Pheromone Emissions',
+            'Excessive Adipose Tissue Accumulation - 87% Body Fat',
+            'Social Skills Module: PERMANENTLY OFFLINE',
+            'Hygiene Protocols: CATASTROPHICALLY FAILED',
+            'Employment Status: ERROR 404 - JOB NOT FOUND',
+            'Romantic Compatibility: INCOMPATIBLE WITH ALL KNOWN SPECIES'
+        ],
+        scanProgress: 100,
+        isCorrupted: true,
+        errorMessage: '⚠️ SCAN CORRUPTED - SUBJECT TOO PATHETIC FOR ANALYSIS ⚠️'
     };
 }
 
@@ -2901,56 +2932,106 @@ client.on('interactionCreate', async interaction => {
             // Generate scan data
             const scanData = generateCyberScan(targetUser);
             
-            // Create the cyberpunk-style embed
-            const embed = new EmbedBuilder()
-                .setTitle(`🤖 BIOMETRIC SCAN REPORT`)
-                .setDescription(`**TARGET:** ${targetUser.displayName}\n**USER ID:** ${targetUser.id.slice(0, 8)}...████\n**SCAN STATUS:** ✅ COMPLETE`)
-                .setColor(0x00FFFF) // Cyan color for cyberpunk feel
-                .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }))
-                .addFields(
-                    {
-                        name: '⚡ VITAL SYSTEMS',
-                        value: `\`\`\`yaml\nEnergy Level: ${scanData.energyLevel}%\nHeart Rate: ${scanData.heartRate} BPM\nCore Temp: ${scanData.bodyTemp}°C\nBrain Activity: ${scanData.brainActivity}%\n\`\`\``,
-                        inline: true
-                    },
-                    {
-                        name: '🔧 CYBERNETIC STATUS',
-                        value: `\`\`\`yaml\nEnhancement Level: ${scanData.cyberLevel}/5\nThreat Assessment: ${scanData.threatLevel}/10\nImplants Detected: ${scanData.installedImplants.length}\n\`\`\``,
-                        inline: true
-                    }
-                )
-                .setFooter({ 
-                    text: `NEXUS CORP BIOMETRIC SCANNER v3.7.2 • Scan ID: ${Date.now().toString(16).toUpperCase()}` 
-                })
-                .setTimestamp();
-            
-            // Add cybernetic implants if any
-            if (scanData.installedImplants.length > 0) {
-                embed.addFields({
-                    name: '🦾 DETECTED CYBERNETIC IMPLANTS',
-                    value: `\`\`\`diff\n${scanData.installedImplants.map(implant => `+ ${implant}`).join('\n')}\n\`\`\``,
+            // Check if this is the corrupted scan
+            if (scanData.isCorrupted) {
+                // Special corrupted display for the target user
+                const corruptedEmbed = new EmbedBuilder()
+                    .setTitle(`🚨 SYSTEM ERROR - SCAN MALFUNCTION 🚨`)
+                    .setDescription(`**TARGET:** ~~${targetUser.displayName}~~ **ORGANIC WASTE DETECTED**\n**USER ID:** ████████████████\n**SCAN STATUS:** ❌ **CATASTROPHIC FAILURE**\n\n${scanData.errorMessage}`)
+                    .setColor(0xFF0000) // Red for error
+                    .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }))
+                    .addFields(
+                        {
+                            name: '💀 VITAL SYSTEMS - CRITICAL FAILURE',
+                            value: `\`\`\`diff\n- Energy Level: ${scanData.energyLevel}% [DANGEROUSLY LOW]\n- Heart Rate: ${scanData.heartRate} BPM [CARDIAC DISTRESS]\n- Core Temp: ${scanData.bodyTemp}°C [FEVER DETECTED]\n- Brain Activity: ${scanData.brainActivity}% [MINIMAL FUNCTION]\n\`\`\``,
+                            inline: false
+                        },
+                        {
+                            name: '🔧 CYBERNETIC STATUS - NULL',
+                            value: `\`\`\`fix\nEnhancement Level: ${scanData.cyberLevel}/5 [INCOMPATIBLE]\nThreat Assessment: ${scanData.threatLevel}/10 [HARMLESS]\nImplants Detected: ${scanData.installedImplants.length} [CORRUPTED]\n\`\`\``,
+                            inline: false
+                        }
+                    )
+                    .setFooter({ 
+                        text: `NEXUS CORP SCANNER v3.7.2 • ERROR CODE: 0xDEADBEEF • PLEASE RESTART SYSTEM` 
+                    })
+                    .setTimestamp();
+                
+                // Add corrupted implants
+                corruptedEmbed.addFields({
+                    name: '⚠️ SYSTEM CORRUPTION DETECTED',
+                    value: `\`\`\`css\n${scanData.installedImplants.map(implant => `[ERROR] ${implant}`).join('\n')}\n\`\`\``,
                     inline: false
                 });
-            }
-            
-            // Add detected weaknesses
-            if (scanData.detectedWeaknesses.length > 0) {
-                embed.addFields({
-                    name: '⚠️ VULNERABILITY ASSESSMENT',
-                    value: `\`\`\`fix\n${scanData.detectedWeaknesses.map(weakness => `- ${weakness}`).join('\n')}\n\`\`\``,
+                
+                // Add brutal assessment
+                corruptedEmbed.addFields({
+                    name: '💥 PATHETIC ORGANISM ANALYSIS',
+                    value: `\`\`\`diff\n${scanData.detectedWeaknesses.map(weakness => `- ${weakness}`).join('\n')}\n\`\`\``,
                     inline: false
                 });
+                
+                // Corrupted progress bar
+                const corruptedBar = '█▓▒░▓█▒░▓█';
+                corruptedEmbed.addFields({
+                    name: '📊 SCAN CORRUPTED',
+                    value: `\`\`\`\n${corruptedBar} ERROR%\nSCAN FAILED - SUBJECT TOO PATHETIC TO PROCESS\n\`\`\``,
+                    inline: false
+                });
+                
+                await interaction.editReply({ content: '', embeds: [corruptedEmbed] });
+            } else {
+                // Normal scan display
+                const embed = new EmbedBuilder()
+                    .setTitle(`🤖 BIOMETRIC SCAN REPORT`)
+                    .setDescription(`**TARGET:** ${targetUser.displayName}\n**USER ID:** ${targetUser.id.slice(0, 8)}...████\n**SCAN STATUS:** ✅ COMPLETE`)
+                    .setColor(0x00FFFF) // Cyan color for cyberpunk feel
+                    .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }))
+                    .addFields(
+                        {
+                            name: '⚡ VITAL SYSTEMS',
+                            value: `\`\`\`yaml\nEnergy Level: ${scanData.energyLevel}%\nHeart Rate: ${scanData.heartRate} BPM\nCore Temp: ${scanData.bodyTemp}°C\nBrain Activity: ${scanData.brainActivity}%\n\`\`\``,
+                            inline: true
+                        },
+                        {
+                            name: '🔧 CYBERNETIC STATUS',
+                            value: `\`\`\`yaml\nEnhancement Level: ${scanData.cyberLevel}/5\nThreat Assessment: ${scanData.threatLevel}/10\nImplants Detected: ${scanData.installedImplants.length}\n\`\`\``,
+                            inline: true
+                        }
+                    )
+                    .setFooter({ 
+                        text: `NEXUS CORP BIOMETRIC SCANNER v3.7.2 • Scan ID: ${Date.now().toString(16).toUpperCase()}` 
+                    })
+                    .setTimestamp();
+                
+                // Add cybernetic implants if any
+                if (scanData.installedImplants.length > 0) {
+                    embed.addFields({
+                        name: '🦾 DETECTED CYBERNETIC IMPLANTS',
+                        value: `\`\`\`diff\n${scanData.installedImplants.map(implant => `+ ${implant}`).join('\n')}\n\`\`\``,
+                        inline: false
+                    });
+                }
+                
+                // Add detected weaknesses
+                if (scanData.detectedWeaknesses.length > 0) {
+                    embed.addFields({
+                        name: '⚠️ VULNERABILITY ASSESSMENT',
+                        value: `\`\`\`fix\n${scanData.detectedWeaknesses.map(weakness => `- ${weakness}`).join('\n')}\n\`\`\``,
+                        inline: false
+                    });
+                }
+                
+                // Add scan completion bar
+                const progressBar = '█'.repeat(10);
+                embed.addFields({
+                    name: '📊 SCAN PROGRESS',
+                    value: `\`\`\`\n${progressBar} ${scanData.scanProgress}%\nSCAN COMPLETE - ALL SYSTEMS NOMINAL\n\`\`\``,
+                    inline: false
+                });
+                
+                await interaction.editReply({ content: '', embeds: [embed] });
             }
-            
-            // Add scan completion bar
-            const progressBar = '█'.repeat(10);
-            embed.addFields({
-                name: '📊 SCAN PROGRESS',
-                value: `\`\`\`\n${progressBar} ${scanData.scanProgress}%\nSCAN COMPLETE - ALL SYSTEMS NOMINAL\n\`\`\``,
-                inline: false
-            });
-            
-            await interaction.editReply({ content: '', embeds: [embed] });
             
             const location = interaction.guild ? interaction.guild.name : 'DM';
             console.log(`CyberScan command used by ${interaction.user.tag} in ${location} on ${targetUser.tag}`);
