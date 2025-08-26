@@ -12,6 +12,17 @@ const cheerio = require('cheerio');
 const QRCode = require('qrcode');
 const figlet = require('figlet');
 const crypto = require('crypto');
+const fs = require('fs');
+
+// Load Catechism data
+let catechismData = null;
+try {
+    const catechismJson = fs.readFileSync('./attached_assets/ccc_1756207200783.json', 'utf8');
+    catechismData = JSON.parse(catechismJson);
+    console.log('Catechism data loaded successfully');
+} catch (error) {
+    console.warn('Could not load catechism data:', error.message);
+}
 
 // Only load dotenv in development (not on Railway)
 if (process.env.NODE_ENV !== 'production') {
@@ -486,6 +497,132 @@ function getColorHex(colorName) {
         'gold': 0xFFD700
     };
     return colors[colorName] || 0x228B22;
+}
+
+// Function to extract text from catechism elements
+function extractTextFromElements(elements) {
+    if (!elements || !Array.isArray(elements)) return '';
+    
+    return elements.map(element => {
+        if (element.type === 'text') {
+            return element.text;
+        } else if (element.type === 'ref') {
+            return `[${element.number || ''}]`;
+        }
+        return '';
+    }).join('').trim();
+}
+
+// Function to get random catechism teaching
+function getRandomCatechismTeaching() {
+    if (!catechismData || !catechismData.page_nodes) {
+        throw new Error('Catechism data not available');
+    }
+    
+    const pageNodeIds = Object.keys(catechismData.page_nodes);
+    const validNodes = pageNodeIds.filter(id => {
+        const node = catechismData.page_nodes[id];
+        return node.paragraphs && node.paragraphs.length > 0;
+    });
+    
+    if (validNodes.length === 0) {
+        throw new Error('No valid catechism teachings found');
+    }
+    
+    const randomNodeId = validNodes[Math.floor(Math.random() * validNodes.length)];
+    const randomNode = catechismData.page_nodes[randomNodeId];
+    
+    // Get title from toc_nodes if available
+    let title = 'Catholic Catechism';
+    if (catechismData.toc_nodes && catechismData.toc_nodes[randomNodeId]) {
+        title = catechismData.toc_nodes[randomNodeId].title || title;
+    }
+    
+    // Extract text from paragraphs
+    const paragraphTexts = randomNode.paragraphs.map(paragraph => 
+        extractTextFromElements(paragraph.elements)
+    ).filter(text => text.length > 0);
+    
+    return {
+        title: title,
+        content: paragraphTexts.join('\n\n'),
+        nodeId: randomNodeId
+    };
+}
+
+// Function to search catechism teachings
+function searchCatechismTeachings(query) {
+    if (!catechismData || !catechismData.page_nodes) {
+        throw new Error('Catechism data not available');
+    }
+    
+    const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 2);
+    const results = [];
+    
+    Object.keys(catechismData.page_nodes).forEach(nodeId => {
+        const node = catechismData.page_nodes[nodeId];
+        if (!node.paragraphs) return;
+        
+        let title = 'Catholic Catechism';
+        if (catechismData.toc_nodes && catechismData.toc_nodes[nodeId]) {
+            title = catechismData.toc_nodes[nodeId].title || title;
+        }
+        
+        const content = node.paragraphs.map(paragraph => 
+            extractTextFromElements(paragraph.elements)
+        ).join(' ').toLowerCase();
+        
+        // Score based on how many search terms are found
+        let score = 0;
+        searchTerms.forEach(term => {
+            const termCount = (content.match(new RegExp(term, 'g')) || []).length;
+            const titleCount = (title.toLowerCase().match(new RegExp(term, 'g')) || []).length;
+            score += termCount + (titleCount * 3); // Weight title matches higher
+        });
+        
+        if (score > 0) {
+            const paragraphTexts = node.paragraphs.map(paragraph => 
+                extractTextFromElements(paragraph.elements)
+            ).filter(text => text.length > 0);
+            
+            results.push({
+                title: title,
+                content: paragraphTexts.join('\n\n'),
+                nodeId: nodeId,
+                score: score
+            });
+        }
+    });
+    
+    // Sort by score and return top results
+    results.sort((a, b) => b.score - a.score);
+    return results.slice(0, 5); // Return top 5 results
+}
+
+// Fallback function to fetch from Vatican website
+async function fallbackCatechismSearch(query) {
+    try {
+        const searchUrl = `https://www.vatican.va/archive/ENG0015/_INDEX.HTM`;
+        const response = await axios.get(searchUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+        });
+        
+        // This is a basic fallback - in practice you'd need to implement proper scraping
+        return {
+            title: 'Catechism of the Catholic Church',
+            content: `For the search term "${query}", please refer to the official Catechism at https://www.vatican.va/archive/ENG0015/_INDEX.HTM`,
+            source: 'vatican.va'
+        };
+    } catch (error) {
+        console.error('Fallback search failed:', error);
+        return {
+            title: 'Catechism Search',
+            content: `Unable to find specific teaching for "${query}". Please refer to the official Catechism of the Catholic Church at https://www.vatican.va/archive/ENG0015/_INDEX.HTM`,
+            source: 'vatican.va'
+        };
+    }
 }
 
 // Function to get saint image - filter out Google UI elements
@@ -1317,6 +1454,30 @@ const commands = [
                 name: 'page',
                 type: 4, // INTEGER type
                 description: 'Page number for element list (1-5)',
+                required: false
+            }
+        ]
+    },
+    {
+        name: 'catechism',
+        description: 'Get Catholic Catechism teachings',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'action',
+                type: 3, // STRING type
+                description: 'Choose "random" for random teaching or "search" to search',
+                required: true,
+                choices: [
+                    { name: 'random', value: 'random' },
+                    { name: 'search', value: 'search' }
+                ]
+            },
+            {
+                name: 'query',
+                type: 3, // STRING type
+                description: 'Search term or phrase (only needed when action is "search")',
                 required: false
             }
         ]
@@ -2229,6 +2390,118 @@ client.on('interactionCreate', async interaction => {
                 await interaction.reply({
                     content: errorMessage,
                     ephemeral: true
+                });
+            } catch {
+                console.error('Failed to send error message to user');
+            }
+        }
+    } else if (commandName === 'catechism') {
+        try {
+            // Defer the response as this might take a moment
+            await interaction.deferReply();
+            
+            const action = interaction.options.getString('action');
+            const query = interaction.options.getString('query');
+            
+            if (action === 'random') {
+                // Get random catechism teaching
+                const teaching = getRandomCatechismTeaching();
+                
+                // Truncate content if too long for Discord embed
+                let content = teaching.content;
+                if (content.length > 1900) {
+                    content = content.substring(0, 1900) + '...';
+                }
+                
+                const embed = new EmbedBuilder()
+                    .setTitle(`✝️ ${teaching.title}`)
+                    .setDescription(content)
+                    .setColor(0x8B0000) // Dark red color for Catholic theme
+                    .setFooter({ 
+                        text: `Requested by ${interaction.user.displayName} • Catechism of the Catholic Church`,
+                        iconURL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Coat_of_arms_Holy_See.svg/200px-Coat_of_arms_Holy_See.svg.png'
+                    })
+                    .setTimestamp();
+                
+                await interaction.editReply({ embeds: [embed] });
+                
+                const location = interaction.guild ? interaction.guild.name : 'DM';
+                console.log(`Catechism random command used by ${interaction.user.tag} in ${location} - Node: ${teaching.nodeId}`);
+                
+            } else if (action === 'search') {
+                if (!query || query.trim().length < 3) {
+                    await interaction.editReply({
+                        content: 'Please provide a search term with at least 3 characters when using the search action.',
+                        ephemeral: true
+                    });
+                    return;
+                }
+                
+                let results;
+                try {
+                    results = searchCatechismTeachings(query.trim());
+                } catch (error) {
+                    console.error('JSON search failed, trying fallback:', error);
+                    // Use fallback search
+                    const fallbackResult = await fallbackCatechismSearch(query.trim());
+                    results = [fallbackResult];
+                }
+                
+                if (results.length === 0) {
+                    // Try fallback search
+                    const fallbackResult = await fallbackCatechismSearch(query.trim());
+                    results = [fallbackResult];
+                }
+                
+                const bestResult = results[0];
+                
+                // Truncate content if too long for Discord embed
+                let content = bestResult.content;
+                if (content.length > 1900) {
+                    content = content.substring(0, 1900) + '...';
+                }
+                
+                const embed = new EmbedBuilder()
+                    .setTitle(`🔍 ${bestResult.title}`)
+                    .setDescription(content)
+                    .setColor(0x8B0000) // Dark red color for Catholic theme
+                    .addFields({
+                        name: '🔎 Search Query',
+                        value: `"${query}"`,
+                        inline: true
+                    });
+                
+                if (results.length > 1) {
+                    embed.addFields({
+                        name: '📚 Additional Results',
+                        value: `Found ${results.length} related teachings`,
+                        inline: true
+                    });
+                }
+                
+                embed.setFooter({ 
+                    text: `Requested by ${interaction.user.displayName} • Catechism of the Catholic Church`,
+                    iconURL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Coat_of_arms_Holy_See.svg/200px-Coat_of_arms_Holy_See.svg.png'
+                })
+                .setTimestamp();
+                
+                await interaction.editReply({ embeds: [embed] });
+                
+                const location = interaction.guild ? interaction.guild.name : 'DM';
+                console.log(`Catechism search command used by ${interaction.user.tag} in ${location} - Query: "${query}" - Results: ${results.length}`);
+            }
+            
+        } catch (error) {
+            console.error('Error in catechism command:', error);
+            try {
+                let errorMessage = 'Sorry, something went wrong while searching the Catechism!';
+                
+                if (error.message.includes('not available')) {
+                    errorMessage = 'The Catechism data is currently not available. Please try again later or refer to https://www.vatican.va/archive/ENG0015/_INDEX.HTM';
+                }
+                
+                await interaction.editReply({
+                    content: errorMessage
                 });
             } catch {
                 console.error('Failed to send error message to user');
