@@ -11,6 +11,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const QRCode = require('qrcode');
 const figlet = require('figlet');
+const crypto = require('crypto');
 
 // Only load dotenv in development (not on Railway)
 if (process.env.NODE_ENV !== 'production') {
@@ -1221,6 +1222,72 @@ const commands = [
         ]
     },
     {
+        name: 'timezone',
+        description: 'Convert time between different time zones',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'time',
+                type: 3, // STRING type
+                description: 'Time in format HH:MM (24-hour format)',
+                required: true
+            },
+            {
+                name: 'from_zone',
+                type: 3, // STRING type
+                description: 'From timezone (UTC, EST, PST, GMT, CET, JST, etc.)',
+                required: true
+            },
+            {
+                name: 'to_zone',
+                type: 3, // STRING type
+                description: 'To timezone (UTC, EST, PST, GMT, CET, JST, etc.)',
+                required: true
+            }
+        ]
+    },
+    {
+        name: 'textstats',
+        description: 'Get statistics for text (word count, characters, reading time)',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'text',
+                type: 3, // STRING type
+                description: 'Text to analyze',
+                required: true
+            }
+        ]
+    },
+    {
+        name: 'hash',
+        description: 'Generate hash values (MD5, SHA256) for text',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'text',
+                type: 3, // STRING type
+                description: 'Text to hash',
+                required: true
+            },
+            {
+                name: 'algorithm',
+                type: 3, // STRING type
+                description: 'Hash algorithm',
+                required: false,
+                choices: [
+                    { name: 'MD5', value: 'md5' },
+                    { name: 'SHA256', value: 'sha256' },
+                    { name: 'SHA1', value: 'sha1' },
+                    { name: 'SHA512', value: 'sha512' }
+                ]
+            }
+        ]
+    },
+    {
         name: 'fart',
         description: 'Fart on someone',
         integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
@@ -1607,6 +1674,166 @@ client.on('interactionCreate', async interaction => {
             console.error('Error in ASCII command:', error);
             await interaction.reply({ 
                 content: 'Sorry, something went wrong generating ASCII art!', 
+                ephemeral: true 
+            });
+        }
+    } else if (commandName === 'timezone') {
+        try {
+            const time = interaction.options.getString('time');
+            const fromZone = interaction.options.getString('from_zone').toUpperCase();
+            const toZone = interaction.options.getString('to_zone').toUpperCase();
+            
+            // Validate time format
+            const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+            if (!timeRegex.test(time)) {
+                return await interaction.reply({ 
+                    content: 'Invalid time format! Please use HH:MM (24-hour format), e.g., 14:30', 
+                    ephemeral: true 
+                });
+            }
+            
+            // Common timezone offsets (simplified)
+            const timezones = {
+                'UTC': 0, 'GMT': 0,
+                'EST': -5, 'EDT': -4,
+                'CST': -6, 'CDT': -5,
+                'MST': -7, 'MDT': -6,
+                'PST': -8, 'PDT': -7,
+                'CET': 1, 'CEST': 2,
+                'JST': 9, 'JST': 9,
+                'AEST': 10, 'AEDT': 11,
+                'IST': 5.5,
+                'BST': 1
+            };
+            
+            if (!timezones.hasOwnProperty(fromZone) || !timezones.hasOwnProperty(toZone)) {
+                return await interaction.reply({ 
+                    content: 'Unsupported timezone! Supported: UTC, GMT, EST, EDT, CST, CDT, MST, MDT, PST, PDT, CET, CEST, JST, AEST, AEDT, IST, BST', 
+                    ephemeral: true 
+                });
+            }
+            
+            // Parse time
+            const [hours, minutes] = time.split(':').map(Number);
+            
+            // Convert to minutes from midnight
+            let totalMinutes = hours * 60 + minutes;
+            
+            // Apply timezone conversion
+            const offsetDiff = (timezones[toZone] - timezones[fromZone]) * 60;
+            totalMinutes += offsetDiff;
+            
+            // Handle day overflow/underflow
+            let dayAdjustment = '';
+            if (totalMinutes < 0) {
+                totalMinutes += 24 * 60;
+                dayAdjustment = ' (-1 day)';
+            } else if (totalMinutes >= 24 * 60) {
+                totalMinutes -= 24 * 60;
+                dayAdjustment = ' (+1 day)';
+            }
+            
+            // Convert back to hours and minutes
+            const newHours = Math.floor(totalMinutes / 60);
+            const newMinutes = totalMinutes % 60;
+            const convertedTime = `${newHours.toString().padStart(2, '0')}:${newMinutes.toString().padStart(2, '0')}`;
+            
+            await interaction.reply(
+                `🌍 **Time Zone Conversion**\n` +
+                `${time} ${fromZone} = **${convertedTime} ${toZone}**${dayAdjustment}`
+            );
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Timezone command used by ${interaction.user.tag} in ${location} - ${time} ${fromZone} to ${toZone}`);
+        } catch (error) {
+            console.error('Error in timezone command:', error);
+            await interaction.reply({ 
+                content: 'Sorry, something went wrong with timezone conversion!', 
+                ephemeral: true 
+            });
+        }
+    } else if (commandName === 'textstats') {
+        try {
+            const text = interaction.options.getString('text');
+            
+            // Calculate statistics
+            const charCount = text.length;
+            const charCountNoSpaces = text.replace(/\s/g, '').length;
+            const wordCount = text.trim().split(/\s+/).filter(word => word.length > 0).length;
+            const sentenceCount = text.split(/[.!?]+/).filter(s => s.trim().length > 0).length;
+            const paragraphCount = text.split(/\n\s*\n/).filter(p => p.trim().length > 0).length;
+            
+            // Estimate reading time (average 200 words per minute)
+            const readingTimeMinutes = Math.ceil(wordCount / 200);
+            const readingTime = readingTimeMinutes === 1 ? '1 minute' : `${readingTimeMinutes} minutes`;
+            
+            // Create embed
+            const embed = new EmbedBuilder()
+                .setTitle('📊 Text Statistics')
+                .setColor(0x3498db)
+                .addFields(
+                    { name: '📝 Characters', value: charCount.toString(), inline: true },
+                    { name: '🔤 Characters (no spaces)', value: charCountNoSpaces.toString(), inline: true },
+                    { name: '📖 Words', value: wordCount.toString(), inline: true },
+                    { name: '💬 Sentences', value: sentenceCount.toString(), inline: true },
+                    { name: '📄 Paragraphs', value: paragraphCount.toString(), inline: true },
+                    { name: '⏱️ Reading Time', value: readingTime, inline: true }
+                )
+                .setFooter({ text: `Requested by ${interaction.user.displayName}` });
+            
+            // Add preview of text if it's long
+            if (text.length > 100) {
+                embed.setDescription(`**Text Preview:** ${text.substring(0, 100)}...`);
+            } else {
+                embed.setDescription(`**Text:** ${text}`);
+            }
+            
+            await interaction.reply({ embeds: [embed] });
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`TextStats command used by ${interaction.user.tag} in ${location} - ${wordCount} words`);
+        } catch (error) {
+            console.error('Error in textstats command:', error);
+            await interaction.reply({ 
+                content: 'Sorry, something went wrong analyzing the text!', 
+                ephemeral: true 
+            });
+        }
+    } else if (commandName === 'hash') {
+        try {
+            const text = interaction.options.getString('text');
+            const algorithm = interaction.options.getString('algorithm') || 'sha256';
+            
+            // Generate hash
+            const hash = crypto.createHash(algorithm).update(text).digest('hex');
+            
+            // Create embed
+            const embed = new EmbedBuilder()
+                .setTitle('🔐 Hash Generated')
+                .setColor(0xe74c3c)
+                .addFields(
+                    { name: '🔤 Algorithm', value: algorithm.toUpperCase(), inline: true },
+                    { name: '📝 Input Length', value: `${text.length} characters`, inline: true },
+                    { name: '🔑 Hash Length', value: `${hash.length} characters`, inline: true }
+                )
+                .setDescription(`**Hash Value:**\n\`\`\`${hash}\`\`\``)
+                .setFooter({ text: `Requested by ${interaction.user.displayName}` });
+            
+            // Add preview of original text if it's long
+            if (text.length > 50) {
+                embed.addFields({ name: '📄 Input Preview', value: `${text.substring(0, 50)}...`, inline: false });
+            } else {
+                embed.addFields({ name: '📄 Input Text', value: text, inline: false });
+            }
+            
+            await interaction.reply({ embeds: [embed] });
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Hash command used by ${interaction.user.tag} in ${location} - Algorithm: ${algorithm}`);
+        } catch (error) {
+            console.error('Error in hash command:', error);
+            await interaction.reply({ 
+                content: 'Sorry, something went wrong generating the hash!', 
                 ephemeral: true 
             });
         }
