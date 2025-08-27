@@ -1226,47 +1226,47 @@ async function getBoatsCrossingData() {
         
         // Extract data from the page
         const data = {
-            lastUpdated: '',
             totalThisWeek: 0,
-            totalThisYear: 0,
+            totalBoats: 0,
             dailyBreakdown: [],
             lastUpdate: new Date().toLocaleDateString('en-GB')
         };
         
-        // Look for the main content and extract data
-        const content = $('.gem-c-govspeak').text();
-        
-        // Extract total for this week
-        const weekMatch = content.match(/(\d+)\s+people?\s+(?:were\s+)?detected\s+(?:crossing\s+)?(?:in\s+)?(?:the\s+)?(?:last\s+)?(?:7\s+days|week)/i);
-        if (weekMatch) {
-            data.totalThisWeek = parseInt(weekMatch[1]);
-        }
-        
-        // Extract total for this year
-        const yearMatch = content.match(/(\d+)\s+people?\s+(?:have\s+been\s+)?detected\s+(?:crossing\s+)?(?:so\s+far\s+)?(?:this\s+year|in\s+\d{4})/i);
-        if (yearMatch) {
-            data.totalThisYear = parseInt(yearMatch[1]);
-        }
-        
-        // Look for daily breakdown in tables or lists
-        $('table tr, li').each((i, element) => {
-            const text = $(element).text();
-            const dateMatch = text.match(/(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i);
-            const numberMatch = text.match(/(\d+)\s+people?/i);
+        // Parse the table data
+        $('table tr').each((i, row) => {
+            if (i === 0) return; // Skip header row
             
-            if (dateMatch && numberMatch) {
-                data.dailyBreakdown.push({
-                    date: `${dateMatch[1]} ${dateMatch[2]} ${dateMatch[3]}`,
-                    count: parseInt(numberMatch[1])
-                });
+            const cells = $(row).find('td');
+            if (cells.length >= 3) {
+                const dateText = $(cells[0]).text().trim();
+                const migrants = parseInt($(cells[1]).text().trim()) || 0;
+                const boats = parseInt($(cells[2]).text().trim()) || 0;
+                
+                // Extract date parts
+                const dateMatch = dateText.match(/(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i);
+                
+                if (dateMatch) {
+                    const formattedDate = `${dateMatch[1]} ${dateMatch[2]} ${dateMatch[3]}`;
+                    
+                    data.dailyBreakdown.push({
+                        date: formattedDate,
+                        migrants: migrants,
+                        boats: boats
+                    });
+                    
+                    // Add to weekly totals
+                    data.totalThisWeek += migrants;
+                    data.totalBoats += boats;
+                }
             }
         });
         
-        // Look for last updated date
-        const updatedMatch = content.match(/(?:last\s+updated|updated\s+on)\s*:?\s*(\d{1,2}\s+\w+\s+\d{4})/i);
-        if (updatedMatch) {
-            data.lastUpdated = updatedMatch[1];
-        }
+        // Sort by date (most recent first)
+        data.dailyBreakdown.sort((a, b) => {
+            const dateA = new Date(a.date);
+            const dateB = new Date(b.date);
+            return dateB - dateA;
+        });
         
         return data;
         
@@ -3528,8 +3528,10 @@ client.on('interactionCreate', async interaction => {
         }
     } else if (commandName === 'boat') {
         try {
-            // Defer the response for longer processing time
-            await interaction.deferReply();
+            // Check if already replied/deferred
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.deferReply();
+            }
             
             // Get boats crossing data
             const boatsData = await getBoatsCrossingData();
@@ -3543,41 +3545,40 @@ client.on('interactionCreate', async interaction => {
                 .setTimestamp();
             
             // Add main statistics
-            if (boatsData.totalThisWeek > 0) {
-                embed.addFields({
-                    name: '📊 Last 7 Days',
-                    value: `**${boatsData.totalThisWeek.toLocaleString()} people** detected crossing`,
-                    inline: true
-                });
-            }
+            embed.addFields({
+                name: '📊 Last 7 Days Total',
+                value: `**${boatsData.totalThisWeek.toLocaleString()} people** in **${boatsData.totalBoats} boats**`,
+                inline: false
+            });
             
-            if (boatsData.totalThisYear > 0) {
-                embed.addFields({
-                    name: '📈 This Year (2025)',
-                    value: `**${boatsData.totalThisYear.toLocaleString()} people** total`,
-                    inline: true
-                });
-            }
-            
-            // Add daily breakdown if available
+            // Add daily breakdown
             if (boatsData.dailyBreakdown.length > 0) {
-                const recentDays = boatsData.dailyBreakdown.slice(0, 5); // Show last 5 days
-                const dailyText = recentDays.map(day => 
-                    `**${day.date}:** ${day.count.toLocaleString()} people`
-                ).join('\n');
+                const dailyText = boatsData.dailyBreakdown.map(day => {
+                    const people = day.migrants.toLocaleString();
+                    const boats = day.boats;
+                    if (day.migrants === 0) {
+                        return `**${day.date}:** No crossings detected`;
+                    } else {
+                        return `**${day.date}:** ${people} people (${boats} boats)`;
+                    }
+                }).join('\n');
                 
                 embed.addFields({
-                    name: '📅 Recent Daily Breakdown',
-                    value: dailyText || 'No recent data available',
+                    name: '📅 Daily Breakdown (Last 7 Days)',
+                    value: dailyText,
                     inline: false
                 });
             }
             
-            // Add last updated info
-            if (boatsData.lastUpdated) {
+            // Calculate daily average
+            const nonZeroDays = boatsData.dailyBreakdown.filter(day => day.migrants > 0);
+            if (nonZeroDays.length > 0) {
+                const avgPerDay = Math.round(boatsData.totalThisWeek / 7);
+                const avgPerCrossingDay = Math.round(boatsData.totalThisWeek / nonZeroDays.length);
+                
                 embed.addFields({
-                    name: '🕒 Last Updated',
-                    value: boatsData.lastUpdated,
+                    name: '📈 Averages',
+                    value: `**${avgPerDay} people/day** overall\n**${avgPerCrossingDay} people/day** on crossing days\n**${nonZeroDays.length}/7 days** had crossings`,
                     inline: true
                 });
             }
