@@ -1264,6 +1264,7 @@ async function getBoatsCrossingData() {
                     data.totalBoats += boats;
                     
                     console.log(`Found: ${displayDate} - ${migrants} migrants, ${boats} boats`);
+                    console.log(`  Raw data: Date="${dateText}", Migrants="${migrantsText}", Boats="${boatsText}"`);
                 }
             }
         });
