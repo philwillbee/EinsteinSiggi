@@ -1210,81 +1210,6 @@ function generateBellringerBossScan(user) {
     };
 }
 
-// Function to get UK boats crossing data
-async function getBoatsCrossingData() {
-    try {
-        const url = 'https://www.gov.uk/government/publications/migrants-detected-crossing-the-english-channel-in-small-boats/migrants-detected-crossing-the-english-channel-in-small-boats-last-7-days';
-        
-        // Fetch the page
-        const response = await axios.get(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-        });
-        
-        const $ = cheerio.load(response.data);
-        
-        // Extract data from the page
-        const data = {
-            totalThisWeek: 0,
-            totalBoats: 0,
-            dailyBreakdown: [],
-            lastUpdate: new Date().toLocaleDateString('en-GB')
-        };
-        
-        // Find all table rows and parse data
-        $('table tr').each((i, row) => {
-            const cells = $(row).find('td');
-            
-            if (cells.length >= 3) {
-                const dateText = $(cells[0]).text().trim();
-                const migrantsText = $(cells[1]).text().trim();
-                const boatsText = $(cells[2]).text().trim();
-                
-                // Check if this looks like a valid data row (has numbers or 0)
-                if (/^\d+$/.test(migrantsText) && /^\d+$/.test(boatsText)) {
-                    const migrants = parseInt(migrantsText);
-                    const boats = parseInt(boatsText);
-                    
-                    // Parse the date (format: "20 August 2025")
-                    let displayDate = dateText;
-                    const dateMatch = dateText.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
-                    if (dateMatch) {
-                        displayDate = `${dateMatch[1]} ${dateMatch[2]}`;
-                    }
-                    
-                    data.dailyBreakdown.push({
-                        date: displayDate,
-                        migrants: migrants,
-                        boats: boats
-                    });
-                    
-                    // Add to totals
-                    data.totalThisWeek += migrants;
-                    data.totalBoats += boats;
-                    
-                    console.log(`Found: ${displayDate} - ${migrants} migrants, ${boats} boats`);
-                    console.log(`  Raw data: Date="${dateText}", Migrants="${migrantsText}", Boats="${boatsText}"`);
-                }
-            }
-        });
-        
-        console.log(`Total parsed: ${data.totalThisWeek} migrants in ${data.totalBoats} boats over ${data.dailyBreakdown.length} days`);
-        
-        // Sort by date (most recent first)
-        data.dailyBreakdown.sort((a, b) => {
-            const dateA = new Date(a.date);
-            const dateB = new Date(b.date);
-            return dateB - dateA;
-        });
-        
-        return data;
-        
-    } catch (error) {
-        console.error('Error fetching boats data:', error);
-        throw error;
-    }
-}
 
 // Function to get UK politics news
 async function getUKPoliticsNews() {
@@ -1988,12 +1913,6 @@ const commands = [
             }
         ]
     },
-    {
-        name: 'boat',
-        description: 'Show latest English Channel small boats crossing data',
-        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
-        contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
-    }
 ];
 
 // Register commands globally when bot starts
@@ -3534,88 +3453,6 @@ client.on('interactionCreate', async interaction => {
                 }
             } catch (replyError) {
                 console.error('Failed to send error reply:', replyError);
-            }
-        }
-    } else if (commandName === 'boat') {
-        try {
-            // Check if already replied/deferred
-            if (!interaction.replied && !interaction.deferred) {
-                await interaction.deferReply();
-            }
-            
-            // Get boats crossing data
-            const boatsData = await getBoatsCrossingData();
-            
-            // Create embed with boats data
-            const embed = new EmbedBuilder()
-                .setTitle('🛥️ English Channel Small Boats Crossings')
-                .setDescription('**Latest official data from UK Government**')
-                .setColor(0x1E3A8A) // Navy blue color
-                .setFooter({ text: `Data from GOV.UK • Requested by ${interaction.user.displayName}` })
-                .setTimestamp();
-            
-            // Add main statistics
-            embed.addFields({
-                name: '📊 Last 7 Days Total',
-                value: `**${boatsData.totalThisWeek.toLocaleString()} people** in **${boatsData.totalBoats} boats**`,
-                inline: false
-            });
-            
-            // Add daily breakdown
-            if (boatsData.dailyBreakdown.length > 0) {
-                const dailyText = boatsData.dailyBreakdown.map(day => {
-                    const people = day.migrants.toLocaleString();
-                    const boats = day.boats;
-                    if (day.migrants === 0) {
-                        return `**${day.date}:** No crossings detected`;
-                    } else {
-                        return `**${day.date}:** ${people} people (${boats} boats)`;
-                    }
-                }).join('\n');
-                
-                embed.addFields({
-                    name: '📅 Daily Breakdown (Last 7 Days)',
-                    value: dailyText,
-                    inline: false
-                });
-            }
-            
-            // Calculate daily average
-            const nonZeroDays = boatsData.dailyBreakdown.filter(day => day.migrants > 0);
-            if (nonZeroDays.length > 0) {
-                const avgPerDay = Math.round(boatsData.totalThisWeek / 7);
-                const avgPerCrossingDay = Math.round(boatsData.totalThisWeek / nonZeroDays.length);
-                
-                embed.addFields({
-                    name: '📈 Averages',
-                    value: `**${avgPerDay} people/day** overall\n**${avgPerCrossingDay} people/day** on crossing days\n**${nonZeroDays.length}/7 days** had crossings`,
-                    inline: true
-                });
-            }
-            
-            // Add data source
-            embed.addFields({
-                name: '🔗 Source',
-                value: '[UK Government Official Data](https://www.gov.uk/government/publications/migrants-detected-crossing-the-english-channel-in-small-boats)',
-                inline: false
-            });
-            
-            // Add UK flag thumbnail
-            embed.setThumbnail('https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Flag_of_the_United_Kingdom.svg/1200px-Flag_of_the_United_Kingdom.svg.png');
-            
-            await interaction.editReply({ embeds: [embed] });
-            
-            const location = interaction.guild ? interaction.guild.name : 'DM';
-            console.log(`Boat command used by ${interaction.user.tag} in ${location} - Week: ${boatsData.totalThisWeek}, Year: ${boatsData.totalThisYear}`);
-            
-        } catch (error) {
-            console.error('Error in boat command:', error);
-            try {
-                await interaction.editReply({
-                    content: '🛥️ Unable to fetch boats crossing data at the moment. The government website might be temporarily unavailable.',
-                });
-            } catch {
-                console.error('Failed to send error message to user');
             }
         }
     }
