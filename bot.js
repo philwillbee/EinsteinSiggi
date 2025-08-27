@@ -3314,11 +3314,24 @@ client.on('interactionCreate', async interaction => {
                 .setTimestamp();
             
             // Send the trial message
-            const trialMessage = await interaction.reply({ embeds: [trialEmbed], fetchReply: true });
+            await interaction.reply({ embeds: [trialEmbed] });
+            const trialMessage = await interaction.fetchReply();
             
-            // Add reaction buttons for voting
-            await trialMessage.react('✅'); // Innocent
-            await trialMessage.react('❌'); // Guilty
+            // Add reaction buttons for voting (only if not in DM)
+            if (interaction.guild) {
+                await trialMessage.react('✅'); // Innocent
+                await trialMessage.react('❌'); // Guilty
+            } else {
+                // In DMs, we can't add reactions, so show a different message
+                const dmEmbed = new EmbedBuilder()
+                    .setTitle('⚖️ TRIAL NOTICE ⚖️')
+                    .setDescription(`**Cannot conduct jury trial in DMs!**\n\nTrials require server members to vote as jury.\nPlease use this command in a server where other members can react to vote.`)
+                    .setColor(0xFF0000)
+                    .setFooter({ text: 'Trials only work in servers with multiple members' });
+                
+                await interaction.editReply({ embeds: [dmEmbed] });
+                return;
+            }
             
             // Log the trial
             const location = interaction.guild ? interaction.guild.name : 'DM';
@@ -3414,15 +3427,32 @@ client.on('interactionCreate', async interaction => {
                     
                 } catch (error) {
                     console.error('Error processing trial verdict:', error);
+                    try {
+                        await interaction.editReply({ 
+                            content: '⚖️ Error processing trial verdict! Court session ended unexpectedly.' 
+                        });
+                    } catch (editError) {
+                        console.error('Failed to send error message:', editError);
+                    }
                 }
             }, 60000); // 60 seconds
             
         } catch (error) {
             console.error('Error in trial command:', error);
-            await interaction.reply({ 
-                content: '⚖️ Court is temporarily closed due to technical difficulties!', 
-                ephemeral: true 
-            });
+            try {
+                if (!interaction.replied && !interaction.deferred) {
+                    await interaction.reply({ 
+                        content: '⚖️ Court is temporarily closed due to technical difficulties!', 
+                        ephemeral: true 
+                    });
+                } else {
+                    await interaction.editReply({ 
+                        content: '⚖️ Court is temporarily closed due to technical difficulties!' 
+                    });
+                }
+            } catch (replyError) {
+                console.error('Failed to send error reply:', replyError);
+            }
         }
     }
 });
