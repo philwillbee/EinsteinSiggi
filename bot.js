@@ -1210,6 +1210,72 @@ function generateBellringerBossScan(user) {
     };
 }
 
+// Function to get UK boats crossing data
+async function getBoatsCrossingData() {
+    try {
+        const url = 'https://www.gov.uk/government/publications/migrants-detected-crossing-the-english-channel-in-small-boats/migrants-detected-crossing-the-english-channel-in-small-boats-last-7-days';
+        
+        // Fetch the page
+        const response = await axios.get(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+        });
+        
+        const $ = cheerio.load(response.data);
+        
+        // Extract data from the page
+        const data = {
+            lastUpdated: '',
+            totalThisWeek: 0,
+            totalThisYear: 0,
+            dailyBreakdown: [],
+            lastUpdate: new Date().toLocaleDateString('en-GB')
+        };
+        
+        // Look for the main content and extract data
+        const content = $('.gem-c-govspeak').text();
+        
+        // Extract total for this week
+        const weekMatch = content.match(/(\d+)\s+people?\s+(?:were\s+)?detected\s+(?:crossing\s+)?(?:in\s+)?(?:the\s+)?(?:last\s+)?(?:7\s+days|week)/i);
+        if (weekMatch) {
+            data.totalThisWeek = parseInt(weekMatch[1]);
+        }
+        
+        // Extract total for this year
+        const yearMatch = content.match(/(\d+)\s+people?\s+(?:have\s+been\s+)?detected\s+(?:crossing\s+)?(?:so\s+far\s+)?(?:this\s+year|in\s+\d{4})/i);
+        if (yearMatch) {
+            data.totalThisYear = parseInt(yearMatch[1]);
+        }
+        
+        // Look for daily breakdown in tables or lists
+        $('table tr, li').each((i, element) => {
+            const text = $(element).text();
+            const dateMatch = text.match(/(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i);
+            const numberMatch = text.match(/(\d+)\s+people?/i);
+            
+            if (dateMatch && numberMatch) {
+                data.dailyBreakdown.push({
+                    date: `${dateMatch[1]} ${dateMatch[2]} ${dateMatch[3]}`,
+                    count: parseInt(numberMatch[1])
+                });
+            }
+        });
+        
+        // Look for last updated date
+        const updatedMatch = content.match(/(?:last\s+updated|updated\s+on)\s*:?\s*(\d{1,2}\s+\w+\s+\d{4})/i);
+        if (updatedMatch) {
+            data.lastUpdated = updatedMatch[1];
+        }
+        
+        return data;
+        
+    } catch (error) {
+        console.error('Error fetching boats data:', error);
+        throw error;
+    }
+}
+
 // Function to get UK politics news
 async function getUKPoliticsNews() {
     try {
@@ -1911,6 +1977,12 @@ const commands = [
                 required: true
             }
         ]
+    },
+    {
+        name: 'boat',
+        description: 'Show latest English Channel small boats crossing data',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
     }
 ];
 
@@ -3452,6 +3524,87 @@ client.on('interactionCreate', async interaction => {
                 }
             } catch (replyError) {
                 console.error('Failed to send error reply:', replyError);
+            }
+        }
+    } else if (commandName === 'boat') {
+        try {
+            // Defer the response for longer processing time
+            await interaction.deferReply();
+            
+            // Get boats crossing data
+            const boatsData = await getBoatsCrossingData();
+            
+            // Create embed with boats data
+            const embed = new EmbedBuilder()
+                .setTitle('🛥️ English Channel Small Boats Crossings')
+                .setDescription('**Latest official data from UK Government**')
+                .setColor(0x1E3A8A) // Navy blue color
+                .setFooter({ text: `Data from GOV.UK • Requested by ${interaction.user.displayName}` })
+                .setTimestamp();
+            
+            // Add main statistics
+            if (boatsData.totalThisWeek > 0) {
+                embed.addFields({
+                    name: '📊 Last 7 Days',
+                    value: `**${boatsData.totalThisWeek.toLocaleString()} people** detected crossing`,
+                    inline: true
+                });
+            }
+            
+            if (boatsData.totalThisYear > 0) {
+                embed.addFields({
+                    name: '📈 This Year (2025)',
+                    value: `**${boatsData.totalThisYear.toLocaleString()} people** total`,
+                    inline: true
+                });
+            }
+            
+            // Add daily breakdown if available
+            if (boatsData.dailyBreakdown.length > 0) {
+                const recentDays = boatsData.dailyBreakdown.slice(0, 5); // Show last 5 days
+                const dailyText = recentDays.map(day => 
+                    `**${day.date}:** ${day.count.toLocaleString()} people`
+                ).join('\n');
+                
+                embed.addFields({
+                    name: '📅 Recent Daily Breakdown',
+                    value: dailyText || 'No recent data available',
+                    inline: false
+                });
+            }
+            
+            // Add last updated info
+            if (boatsData.lastUpdated) {
+                embed.addFields({
+                    name: '🕒 Last Updated',
+                    value: boatsData.lastUpdated,
+                    inline: true
+                });
+            }
+            
+            // Add data source
+            embed.addFields({
+                name: '🔗 Source',
+                value: '[UK Government Official Data](https://www.gov.uk/government/publications/migrants-detected-crossing-the-english-channel-in-small-boats)',
+                inline: false
+            });
+            
+            // Add UK flag thumbnail
+            embed.setThumbnail('https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Flag_of_the_United_Kingdom.svg/1200px-Flag_of_the_United_Kingdom.svg.png');
+            
+            await interaction.editReply({ embeds: [embed] });
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Boat command used by ${interaction.user.tag} in ${location} - Week: ${boatsData.totalThisWeek}, Year: ${boatsData.totalThisYear}`);
+            
+        } catch (error) {
+            console.error('Error in boat command:', error);
+            try {
+                await interaction.editReply({
+                    content: '🛥️ Unable to fetch boats crossing data at the moment. The government website might be temporarily unavailable.',
+                });
+            } catch {
+                console.error('Failed to send error message to user');
             }
         }
     }
