@@ -1232,34 +1232,43 @@ async function getBoatsCrossingData() {
             lastUpdate: new Date().toLocaleDateString('en-GB')
         };
         
-        // Parse the table data
+        // Find all table rows and parse data
         $('table tr').each((i, row) => {
-            if (i === 0) return; // Skip header row
-            
             const cells = $(row).find('td');
+            
             if (cells.length >= 3) {
                 const dateText = $(cells[0]).text().trim();
-                const migrants = parseInt($(cells[1]).text().trim()) || 0;
-                const boats = parseInt($(cells[2]).text().trim()) || 0;
+                const migrantsText = $(cells[1]).text().trim();
+                const boatsText = $(cells[2]).text().trim();
                 
-                // Extract date parts
-                const dateMatch = dateText.match(/(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i);
-                
-                if (dateMatch) {
-                    const formattedDate = `${dateMatch[1]} ${dateMatch[2]} ${dateMatch[3]}`;
+                // Check if this looks like a valid data row (has numbers or 0)
+                if (/^\d+$/.test(migrantsText) && /^\d+$/.test(boatsText)) {
+                    const migrants = parseInt(migrantsText);
+                    const boats = parseInt(boatsText);
+                    
+                    // Parse the date (format: "20 August 2025")
+                    let displayDate = dateText;
+                    const dateMatch = dateText.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
+                    if (dateMatch) {
+                        displayDate = `${dateMatch[1]} ${dateMatch[2]}`;
+                    }
                     
                     data.dailyBreakdown.push({
-                        date: formattedDate,
+                        date: displayDate,
                         migrants: migrants,
                         boats: boats
                     });
                     
-                    // Add to weekly totals
+                    // Add to totals
                     data.totalThisWeek += migrants;
                     data.totalBoats += boats;
+                    
+                    console.log(`Found: ${displayDate} - ${migrants} migrants, ${boats} boats`);
                 }
             }
         });
+        
+        console.log(`Total parsed: ${data.totalThisWeek} migrants in ${data.totalBoats} boats over ${data.dailyBreakdown.length} days`);
         
         // Sort by date (most recent first)
         data.dailyBreakdown.sort((a, b) => {
