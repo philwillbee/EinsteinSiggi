@@ -1913,6 +1913,60 @@ const commands = [
             }
         ]
     },
+    {
+        name: 'ship',
+        description: 'Check relationship compatibility between two users',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'user1',
+                type: 6, // USER type
+                description: 'First person in the relationship',
+                required: true
+            },
+            {
+                name: 'user2',
+                type: 6, // USER type
+                description: 'Second person in the relationship',
+                required: true
+            }
+        ]
+    },
+    {
+        name: '8ball',
+        description: 'Ask the magic 8-ball a yes/no question',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'question',
+                type: 3, // STRING type
+                description: 'Your yes/no question for the magic 8-ball',
+                required: true
+            }
+        ]
+    },
+    {
+        name: 'reminder',
+        description: 'Set a personal reminder',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'time',
+                type: 3, // STRING type
+                description: 'Time from now (e.g. "5m", "1h", "30s")',
+                required: true
+            },
+            {
+                name: 'message',
+                type: 3, // STRING type
+                description: 'What to remind you about',
+                required: true
+            }
+        ]
+    },
 ];
 
 // Register commands globally when bot starts
@@ -3454,6 +3508,260 @@ client.on('interactionCreate', async interaction => {
             } catch (replyError) {
                 console.error('Failed to send error reply:', replyError);
             }
+        }
+    } else if (commandName === 'ship') {
+        try {
+            const user1 = interaction.options.getUser('user1');
+            const user2 = interaction.options.getUser('user2');
+            
+            // Generate a "random" but consistent percentage based on user IDs
+            const combined = user1.id + user2.id;
+            let hash = 0;
+            for (let i = 0; i < combined.length; i++) {
+                const char = combined.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // Convert to 32-bit integer
+            }
+            const percentage = Math.abs(hash) % 101; // 0-100
+            
+            // Determine relationship status based on percentage
+            let status, color, emoji;
+            if (percentage >= 90) {
+                status = "Soulmates! 💕";
+                color = 0xFF69B4; // Hot pink
+                emoji = "💕";
+            } else if (percentage >= 75) {
+                status = "Perfect match! 💖";
+                color = 0xFF1493; // Deep pink
+                emoji = "💖";
+            } else if (percentage >= 60) {
+                status = "Great chemistry! 💘";
+                color = 0xDC143C; // Crimson
+                emoji = "💘";
+            } else if (percentage >= 45) {
+                status = "Good potential! 💗";
+                color = 0xFF6347; // Tomato
+                emoji = "💗";
+            } else if (percentage >= 30) {
+                status = "Might work out 💙";
+                color = 0x4169E1; // Royal blue
+                emoji = "💙";
+            } else if (percentage >= 15) {
+                status = "Unlikely match 💔";
+                color = 0x696969; // Dim gray
+                emoji = "💔";
+            } else {
+                status = "Not meant to be 💸";
+                color = 0x000000; // Black
+                emoji = "💸";
+            }
+            
+            const embed = new EmbedBuilder()
+                .setTitle(`${emoji} Love Calculator ${emoji}`)
+                .setDescription(`**${user1.displayName}** + **${user2.displayName}**`)
+                .setColor(color)
+                .addFields(
+                    {
+                        name: '💝 Compatibility Score',
+                        value: `**${percentage}%**`,
+                        inline: true
+                    },
+                    {
+                        name: '💕 Relationship Status',
+                        value: status,
+                        inline: true
+                    }
+                )
+                .setThumbnail('https://upload.wikimedia.org/wikipedia/commons/thumb/f/f1/Heart_coraz%C3%B3n.svg/1200px-Heart_coraz%C3%B3n.svg.png')
+                .setFooter({ text: `Requested by ${interaction.user.displayName} • Results may vary` })
+                .setTimestamp();
+            
+            await interaction.reply({ embeds: [embed] });
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Ship command used by ${interaction.user.tag} in ${location} - ${user1.tag} + ${user2.tag} = ${percentage}%`);
+            
+        } catch (error) {
+            console.error('Error in ship command:', error);
+            await interaction.reply({ 
+                content: '💔 Love calculator is temporarily broken! Try again later.', 
+                ephemeral: true 
+            });
+        }
+    } else if (commandName === '8ball') {
+        try {
+            const question = interaction.options.getString('question');
+            
+            const responses = [
+                // Positive responses
+                "🔮 It is certain",
+                "🔮 It is decidedly so",
+                "🔮 Without a doubt",
+                "🔮 Yes definitely",
+                "🔮 You may rely on it",
+                "🔮 As I see it, yes",
+                "🔮 Most likely",
+                "🔮 Outlook good",
+                "🔮 Yes",
+                "🔮 Signs point to yes",
+                
+                // Neutral/uncertain responses
+                "🌀 Reply hazy, try again",
+                "🌀 Ask again later",
+                "🌀 Better not tell you now",
+                "🌀 Cannot predict now",
+                "🌀 Concentrate and ask again",
+                
+                // Negative responses
+                "❌ Don't count on it",
+                "❌ My reply is no",
+                "❌ My sources say no",
+                "❌ Outlook not so good",
+                "❌ Very doubtful"
+            ];
+            
+            const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+            
+            const embed = new EmbedBuilder()
+                .setTitle('🎱 Magic 8-Ball')
+                .setDescription(`**Question:** ${question}`)
+                .addFields({
+                    name: '🔮 The Magic 8-Ball says:',
+                    value: `*${randomResponse}*`,
+                    inline: false
+                })
+                .setColor(0x000000) // Black like an 8-ball
+                .setThumbnail('https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/8-Ball_Pool.svg/1200px-8-Ball_Pool.svg.png')
+                .setFooter({ text: `Asked by ${interaction.user.displayName}` })
+                .setTimestamp();
+            
+            await interaction.reply({ embeds: [embed] });
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`8ball command used by ${interaction.user.tag} in ${location} - Question: "${question}"`);
+            
+        } catch (error) {
+            console.error('Error in 8ball command:', error);
+            await interaction.reply({ 
+                content: '🎱 The magic 8-ball is cloudy right now. Try shaking it later!', 
+                ephemeral: true 
+            });
+        }
+    } else if (commandName === 'reminder') {
+        try {
+            const timeString = interaction.options.getString('time');
+            const message = interaction.options.getString('message');
+            
+            // Parse time string (e.g. "5m", "1h", "30s")
+            const timeMatch = timeString.match(/^(\d+)([smhd])$/i);
+            if (!timeMatch) {
+                return await interaction.reply({ 
+                    content: '⏰ Invalid time format! Use formats like: 5m, 1h, 30s, 2d', 
+                    ephemeral: true 
+                });
+            }
+            
+            const amount = parseInt(timeMatch[1]);
+            const unit = timeMatch[2].toLowerCase();
+            
+            let milliseconds;
+            let unitName;
+            
+            switch (unit) {
+                case 's':
+                    milliseconds = amount * 1000;
+                    unitName = amount === 1 ? 'second' : 'seconds';
+                    break;
+                case 'm':
+                    milliseconds = amount * 60 * 1000;
+                    unitName = amount === 1 ? 'minute' : 'minutes';
+                    break;
+                case 'h':
+                    milliseconds = amount * 60 * 60 * 1000;
+                    unitName = amount === 1 ? 'hour' : 'hours';
+                    break;
+                case 'd':
+                    milliseconds = amount * 24 * 60 * 60 * 1000;
+                    unitName = amount === 1 ? 'day' : 'days';
+                    break;
+                default:
+                    return await interaction.reply({ 
+                        content: '⏰ Invalid time unit! Use s (seconds), m (minutes), h (hours), or d (days)', 
+                        ephemeral: true 
+                    });
+            }
+            
+            // Check if time is reasonable (max 7 days)
+            if (milliseconds > 7 * 24 * 60 * 60 * 1000) {
+                return await interaction.reply({ 
+                    content: '⏰ Maximum reminder time is 7 days!', 
+                    ephemeral: true 
+                });
+            }
+            
+            if (milliseconds < 10000) { // Less than 10 seconds
+                return await interaction.reply({ 
+                    content: '⏰ Minimum reminder time is 10 seconds!', 
+                    ephemeral: true 
+                });
+            }
+            
+            // Confirm the reminder is set
+            const embed = new EmbedBuilder()
+                .setTitle('⏰ Reminder Set!')
+                .setDescription(`I'll remind you in **${amount} ${unitName}**`)
+                .addFields({
+                    name: '📝 Reminder',
+                    value: message,
+                    inline: false
+                })
+                .setColor(0x00FF00) // Green
+                .setFooter({ text: `Set by ${interaction.user.displayName}` })
+                .setTimestamp();
+            
+            await interaction.reply({ embeds: [embed] });
+            
+            // Set the reminder
+            setTimeout(async () => {
+                try {
+                    const reminderEmbed = new EmbedBuilder()
+                        .setTitle('⏰ REMINDER!')
+                        .setDescription(`Hey ${interaction.user}! You asked me to remind you:`)
+                        .addFields({
+                            name: '📝 Your Reminder',
+                            value: message,
+                            inline: false
+                        })
+                        .setColor(0xFF6347) // Tomato red
+                        .setFooter({ text: `Reminder from ${amount} ${unitName} ago` })
+                        .setTimestamp();
+                    
+                    // Try to send DM first, fallback to channel
+                    try {
+                        await interaction.user.send({ embeds: [reminderEmbed] });
+                    } catch (dmError) {
+                        // If DM fails, try to send in the same channel
+                        if (interaction.channel) {
+                            await interaction.channel.send({ 
+                                content: `${interaction.user}`, 
+                                embeds: [reminderEmbed] 
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error sending reminder:', error);
+                }
+            }, milliseconds);
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Reminder command used by ${interaction.user.tag} in ${location} - ${amount} ${unitName}: "${message}"`);
+            
+        } catch (error) {
+            console.error('Error in reminder command:', error);
+            await interaction.reply({ 
+                content: '⏰ Something went wrong setting your reminder. Try again!', 
+                ephemeral: true 
+            });
         }
     }
 });
