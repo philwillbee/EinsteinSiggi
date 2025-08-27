@@ -3328,12 +3328,14 @@ client.on('interactionCreate', async interaction => {
             setTimeout(async () => {
                 try {
                     // Fetch the message again to get updated reactions
-                    const updatedMessage = await trialMessage.fetch();
+                    const updatedMessage = await interaction.fetchReply();
                     
                     // Count votes (subtract 1 to exclude bot's own reactions)
                     const innocentVotes = updatedMessage.reactions.cache.get('✅')?.count - 1 || 0;
                     const guiltyVotes = updatedMessage.reactions.cache.get('❌')?.count - 1 || 0;
                     const totalVotes = innocentVotes + guiltyVotes;
+                    
+                    console.log(`Trial verdict: ${innocentVotes} innocent, ${guiltyVotes} guilty, ${totalVotes} total votes`);
                     
                     // Determine verdict
                     let verdict, verdictColor, verdictIcon;
@@ -3408,7 +3410,7 @@ client.on('interactionCreate', async interaction => {
                     }
                     
                     // Edit the original message with verdict
-                    await updatedMessage.edit({ embeds: [verdictEmbed] });
+                    await interaction.editReply({ embeds: [verdictEmbed] });
                     
                 } catch (error) {
                     console.error('Error processing trial verdict:', error);
