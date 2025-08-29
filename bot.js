@@ -3055,15 +3055,19 @@ client.on('interactionCreate', async interaction => {
         }
     } else if (commandName === 'cyberscan') {
         try {
-            // Defer the response for scanning effect
-            await interaction.deferReply();
-            
             const targetUser = interaction.options.getUser('target');
             
+            // Check if already replied/deferred to avoid errors
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.deferReply();
+            }
+            
             // Show "scanning" message first
-            await interaction.editReply({
-                content: '```\n🔍 BIOMETRIC SCAN INITIATED...\n⚡ ANALYZING NEURAL PATTERNS...\n🔬 DETECTING CYBERNETIC SIGNATURES...\n```'
-            });
+            if (!interaction.replied) {
+                await interaction.editReply({
+                    content: '```\n🔍 BIOMETRIC SCAN INITIATED...\n⚡ ANALYZING NEURAL PATTERNS...\n🔬 DETECTING CYBERNETIC SIGNATURES...\n```'
+                });
+            }
             
             // Wait a moment for dramatic effect
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -3100,6 +3104,9 @@ client.on('interactionCreate', async interaction => {
                         text: `NEXUS CORP SCANNER v3.7.2 • ERROR CODE: 0xDEADBEEF • PLEASE RESTART SYSTEM` 
                     })
                     .setTimestamp();
+                
+                await interaction.editReply({ embeds: [corruptedEmbed] });
+                
             } else if (scanData.isBossEntity) {
                 // Special boss-style display for bellringingenthusiast
                 const bossEmbed = new EmbedBuilder()
@@ -3189,9 +3196,16 @@ client.on('interactionCreate', async interaction => {
         } catch (error) {
             console.error('Error in cyberscan command:', error);
             try {
-                await interaction.editReply({
-                    content: '```diff\n- SCAN ERROR: BIOMETRIC SYSTEMS OFFLINE\n- PLEASE RETRY IN EMERGENCY MODE\n```',
-                });
+                if (!interaction.replied && !interaction.deferred) {
+                    await interaction.reply({
+                        content: '```diff\n- SCAN ERROR: BIOMETRIC SYSTEMS OFFLINE\n- PLEASE RETRY IN EMERGENCY MODE\n```',
+                        ephemeral: true
+                    });
+                } else {
+                    await interaction.editReply({
+                        content: '```diff\n- SCAN ERROR: BIOMETRIC SYSTEMS OFFLINE\n- PLEASE RETRY IN EMERGENCY MODE\n```',
+                    });
+                }
             } catch {
                 console.error('Failed to send error message to user');
             }
