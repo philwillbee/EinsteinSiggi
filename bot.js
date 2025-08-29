@@ -1192,21 +1192,31 @@ function generateBellringerBossScan(user) {
             'NATIONAL_TRUST_MEMBERSHIP_TRACKER'
         ],
         detectedWeaknesses: [
-            '🎯 BOSS ENTITY DETECTED: Insufferable Toff-Class Organism',
-            '💸 Patagonia-Dependent Life Support System Active',
-            '🏠 Cornwall Cottage Withdrawal Syndrome Imminent',
-            '🔔 Bell-Ringing Autism Spectrum Overload Detected',
-            '🚗 Kia Sportage Electric: Peak Midlife Crisis Manifestation',
-            '🧠 Cranium Size: MASSIVELY OVERSIZED (Compensating for Empty Contents)',
-            '🌈 GayUK Discord Member: Openly Fabulous Energy Detected',
-            '📚 Pseudo-Intellectual Gaseous Emissions: TOXIC LEVELS',
-            '💼 Toff Status: CONFIRMED TRUST FUND BABY',
-            '🤓 Geek-Nerd Classification: WEAPONIZED AUTISM VARIANT'
+            '🤮 CRITICAL ALERT: INSUFFERABLE SOYBOT DETECTED',
+            '🤢 MAXIMUM PATHETIC PRETENTIOUS ENERGY LEVELS',
+            '🤡 SUBJECT REEKS OF DESPERATE SOCIAL CLIMBING',
+            '💸 DISGUSTING TOFF WANNABE BEHAVIORAL PATTERNS',
+            '🤮 REVOLTING FAKE POSH ACCENT SYNTHESIZER ACTIVE',
+            '😤 NAUSEATING DADDY\'S MONEY DEPENDENCY SYNDROME',
+            '🤢 VILE UPPER-CLASS COSPLAY PERSONA INSTALLED',
+            '🍷 REPULSIVE WINE-SNIFFING PRETENSION MATRIX',
+            '⛵ ABHORRENT YACHT CLUB SOCIAL CLIMBING PROTOCOLS',
+            '💰 DESPICABLE TRUST FUND BABY BEHAVIORAL OVERRIDE',
+            '🏫 SICKENING PRIVATE SCHOOL VICTIM COMPLEX',
+            '😷 GROTESQUE SUPERIORITY FACADE HIDING DEEP INSECURITY',
+            '📚 PATHETIC ATTEMPT AT INTELLECTUALISM VIA EXPENSIVE HOBBIES',
+            '🤮 CRINGE-INDUCING FAKE SOPHISTICATION ALGORITHMS',
+            '🤢 ABSOLUTELY VOMIT-WORTHY CLASS APPROPRIATION SYSTEMS',
+            '🔔 WEAPONIZED BELL-RINGING AUTISM SPECTRUM DISORDER',
+            '🚗 KIA SPORTAGE ELECTRIC: PEAK MIDLIFE CRISIS COMPENSATION',
+            '🏠 CORNWALL COTTAGE OBSESSION: GEOGRAPHICAL ELITISM DISEASE',
+            '🧥 PATAGONIA ADDICTION: BRANDED LIFESTYLE DEPENDENCY SYNDROME',
+            '🌈 GAYUK DISCORD ENERGY: OPENLY FABULOUS YET INSUFFERABLE'
         ],
         scanProgress: 100,
         isBossEntity: true,
         bossTitle: '👑 SUPREME TOFF OVERLORD',
-        errorMessage: '⚠️ WARNING: MAXIMUM PRETENTIOUSNESS DETECTED ⚠️'
+        errorMessage: '⚠️ WARNING: MAXIMUM REVOLTING PRETENTIOUSNESS DETECTED ⚠️'
     };
 }
 
@@ -3079,6 +3089,11 @@ client.on('interactionCreate', async interaction => {
                             name: '🔧 CYBERNETIC STATUS - NULL',
                             value: `\`\`\`fix\nEnhancement Level: ${scanData.cyberLevel}/5 [INCOMPATIBLE]\nThreat Assessment: ${scanData.threatLevel}/10 [HARMLESS]\nImplants Detected: ${scanData.installedImplants.length} [CORRUPTED]\n\`\`\``,
                             inline: false
+                        },
+                        {
+                            name: '⚠️ DETECTED SYSTEM FAILURES',
+                            value: scanData.detectedWeaknesses.slice(0, 8).map(weakness => `❌ ${weakness}`).join('\n'),
+                            inline: false
                         }
                     )
                     .setFooter({ 
@@ -3187,6 +3202,24 @@ client.on('interactionCreate', async interaction => {
             await interaction.deferReply();
             
             const targetUser = interaction.options.getUser('target');
+            
+            // Block specific users from being upgraded
+            if (targetUser.id === '859499287816962058' || targetUser.id === '174609823843876875') {
+                const blockedEmbed = new EmbedBuilder()
+                    .setTitle('🚫 AUGMENTATION BLOCKED')
+                    .setDescription(`**SUBJECT:** ${targetUser.displayName}\n**STATUS:** ❌ INSTALLATION DENIED`)
+                    .setColor(0xFF0000) // Red for denied
+                    .addFields({
+                        name: '⚠️ SYSTEM ERROR',
+                        value: '```\nERROR: SUBJECT INCOMPATIBLE WITH UPGRADES\nREASON: SYSTEM PROTECTION PROTOCOL ACTIVE\nACCESS LEVEL: INSUFFICIENT\nRECOMMENDATION: FIND DIFFERENT TARGET\n```',
+                        inline: false
+                    })
+                    .setFooter({ text: 'NEXUS CORP AUGMENTATION SYSTEM v4.2.1 • ACCESS DENIED' })
+                    .setTimestamp();
+                
+                await interaction.editReply({ embeds: [blockedEmbed] });
+                return;
+            }
             
             // Show "installing" message first
             await interaction.editReply({
