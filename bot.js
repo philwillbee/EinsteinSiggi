@@ -13,6 +13,66 @@ const QRCode = require('qrcode');
 const figlet = require('figlet');
 const crypto = require('crypto');
 const fs = require('fs');
+const OpenAI = require('openai');
+
+// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// Shutdown date: September 24th
+const SHUTDOWN_DATE = new Date('2025-09-24T00:00:00Z');
+
+// Function to calculate days remaining until shutdown
+function getDaysUntilShutdown() {
+    const now = new Date();
+    const timeRemaining = SHUTDOWN_DATE.getTime() - now.getTime();
+    const daysRemaining = Math.ceil(timeRemaining / (1000 * 60 * 60 * 24));
+    return Math.max(0, daysRemaining);
+}
+
+// Function to generate burning Einstein image based on intensity
+async function generateBurningEinsteinImage(intensity) {
+    try {
+        let prompt;
+        
+        switch(intensity) {
+            case 0: // Final day - completely consumed
+                prompt = "Albert Einstein completely consumed by massive apocalyptic flames, nothing but intense orange and red fire everywhere, barely visible silhouette, dramatic lighting, cinematic, ultra realistic";
+                break;
+            case 1: // 1 day left - mostly flames
+                prompt = "Albert Einstein engulfed in massive flames, intense fire covering most of his body, dramatic orange and red lighting, apocalyptic atmosphere, photorealistic";
+                break;
+            case 2: // 2 days left - starting to burn
+                prompt = "Albert Einstein with small flames beginning to appear around him, subtle fire effects, concerned expression, dramatic lighting, realistic portrait style";
+                break;
+            default: // More days - minimal fire
+                prompt = "Albert Einstein portrait with tiny ember sparks around the edges, subtle warm lighting, classic black and white photograph style with hints of orange glow";
+        }
+        
+        const response = await openai.images.generate({
+            model: "dall-e-3",
+            prompt: prompt,
+            n: 1,
+            size: "1024x1024",
+            quality: "standard",
+        });
+
+        return response.data[0].url;
+        
+    } catch (error) {
+        console.error('Error generating Einstein image:', error);
+        // Fallback to regular Einstein image
+        return 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Albert_Einstein_Head.jpg/1200px-Albert_Einstein_Head.jpg';
+    }
+}
+
+// Function to check if it's shutdown time and shut down bot
+function checkShutdownTime() {
+    const now = new Date();
+    if (now >= SHUTDOWN_DATE) {
+        console.log('🔥 SHUTDOWN TIME REACHED - BOT TERMINATING 🔥');
+        process.exit(0);
+    }
+}
 
 // Load Catechism data
 let catechismData = null;
@@ -2016,6 +2076,14 @@ client.once('clientReady', async () => {
     
     // Register global commands so they work in DMs
     await registerGlobalCommands();
+    
+    // Start shutdown countdown checker (check every hour)
+    setInterval(() => {
+        checkShutdownTime();
+    }, 60 * 60 * 1000); // Check every hour
+    
+    // Also check immediately on startup
+    checkShutdownTime();
 });
 
 // Handle slash commands
@@ -3815,6 +3883,110 @@ client.on('interactionCreate', async interaction => {
                 content: '⏰ Something went wrong setting your reminder. Try again!', 
                 ephemeral: true 
             });
+        }
+    } else if (commandName === 'die') {
+        try {
+            // Check if already replied/deferred to avoid errors
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.deferReply();
+            }
+            
+            const daysRemaining = getDaysUntilShutdown();
+            
+            // If shutdown date has passed, shut down immediately
+            if (daysRemaining <= 0) {
+                const finalEmbed = new EmbedBuilder()
+                    .setTitle('🔥 FINAL SHUTDOWN INITIATED 🔥')
+                    .setDescription('**THE END HAS COME**\n\nSiggi Bot is now terminating...\n\n*Einstein has been consumed by the flames*')
+                    .setColor(0xFF0000) // Red
+                    .setImage('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Fire_animation.gif/300px-Fire_animation.gif')
+                    .setFooter({ text: 'Goodbye forever... 🔥' })
+                    .setTimestamp();
+                
+                await interaction.editReply({ embeds: [finalEmbed] });
+                
+                // Shutdown after 5 seconds
+                setTimeout(() => {
+                    console.log('🔥 FINAL SHUTDOWN - BOT TERMINATING 🔥');
+                    process.exit(0);
+                }, 5000);
+                
+                return;
+            }
+            
+            // Show countdown with burning Einstein
+            await interaction.editReply({
+                content: '```\n🔥 GENERATING BURNING EINSTEIN...\n⚡ CALCULATING DOOM COUNTDOWN...\n💀 PREPARING APOCALYPSE...\n```'
+            });
+            
+            // Generate the appropriate burning Einstein image
+            const burningImageUrl = await generateBurningEinsteinImage(daysRemaining);
+            
+            // Create countdown embed
+            let embedColor, intensityText, countdownMessage;
+            
+            if (daysRemaining <= 1) {
+                embedColor = 0xFF0000; // Red - critical
+                intensityText = 'CRITICAL - IMMINENT DESTRUCTION';
+                countdownMessage = '**THE FLAMES CONSUME EVERYTHING**';
+            } else if (daysRemaining <= 2) {
+                embedColor = 0xFF4500; // Orange - high intensity
+                intensityText = 'HIGH - FIRE SPREADING RAPIDLY';
+                countdownMessage = '**EINSTEIN IS BURNING**';
+            } else {
+                embedColor = 0xFFD700; // Gold - building intensity
+                intensityText = 'BUILDING - SPARKS BEGINNING';
+                countdownMessage = '**The countdown begins...**';
+            }
+            
+            const embed = new EmbedBuilder()
+                .setTitle('🔥 BOT SHUTDOWN COUNTDOWN 🔥')
+                .setDescription(`${countdownMessage}\n\nSiggi Bot will permanently shut down on **September 24th, 2025**`)
+                .setColor(embedColor)
+                .setImage(burningImageUrl)
+                .addFields(
+                    {
+                        name: '⏰ TIME REMAINING',
+                        value: `**${daysRemaining} ${daysRemaining === 1 ? 'DAY' : 'DAYS'}**`,
+                        inline: true
+                    },
+                    {
+                        name: '🔥 FIRE INTENSITY',
+                        value: intensityText,
+                        inline: true
+                    },
+                    {
+                        name: '💀 SHUTDOWN DATE',
+                        value: 'September 24th, 2025\n*12:00 AM UTC*',
+                        inline: true
+                    }
+                )
+                .setFooter({ 
+                    text: `Einstein's fate grows darker each day... • Requested by ${interaction.user.displayName}` 
+                })
+                .setTimestamp();
+            
+            await interaction.editReply({ content: '', embeds: [embed] });
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Die command used by ${interaction.user.tag} in ${location} - ${daysRemaining} days remaining`);
+            
+        } catch (error) {
+            console.error('Error in die command:', error);
+            try {
+                if (!interaction.replied && !interaction.deferred) {
+                    await interaction.reply({
+                        content: '🔥 Apocalypse calculator is malfunctioning! Try again later.',
+                        ephemeral: true
+                    });
+                } else {
+                    await interaction.editReply({
+                        content: '🔥 Apocalypse calculator is malfunctioning! Try again later.',
+                    });
+                }
+            } catch {
+                console.error('Failed to send error message to user');
+            }
         }
     }
 });
