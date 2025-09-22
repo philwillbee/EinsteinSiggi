@@ -65,13 +65,10 @@ async function generateBurningEinsteinImage(intensity) {
     }
 }
 
-// Function to check if it's shutdown time and shut down bot
-function checkShutdownTime() {
+// Function to check if it's past shutdown date (for display only)
+function isShutdownDatePassed() {
     const now = new Date();
-    if (now >= SHUTDOWN_DATE) {
-        console.log('🔥 SHUTDOWN TIME REACHED - BOT TERMINATING 🔥');
-        process.exit(0);
-    }
+    return now >= SHUTDOWN_DATE;
 }
 
 // Load Catechism data
@@ -2076,14 +2073,6 @@ client.once('clientReady', async () => {
     
     // Register global commands so they work in DMs
     await registerGlobalCommands();
-    
-    // Start shutdown countdown checker (check every hour)
-    setInterval(() => {
-        checkShutdownTime();
-    }, 60 * 60 * 1000); // Check every hour
-    
-    // Also check immediately on startup
-    checkShutdownTime();
 });
 
 // Handle slash commands
@@ -3893,24 +3882,17 @@ client.on('interactionCreate', async interaction => {
             
             const daysRemaining = getDaysUntilShutdown();
             
-            // If shutdown date has passed, shut down immediately
+            // If shutdown date has passed, show final message (but don't shut down)
             if (daysRemaining <= 0) {
                 const finalEmbed = new EmbedBuilder()
-                    .setTitle('🔥 FINAL SHUTDOWN INITIATED 🔥')
-                    .setDescription('**THE END HAS COME**\n\nSiggi Bot is now terminating...\n\n*Einstein has been consumed by the flames*')
+                    .setTitle('🔥 SHUTDOWN DATE REACHED 🔥')
+                    .setDescription('**THE COUNTDOWN IS OVER**\n\nSeptember 24th has arrived!\n\n*Einstein burns in eternal flames...*')
                     .setColor(0xFF0000) // Red
                     .setImage('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Fire_animation.gif/300px-Fire_animation.gif')
-                    .setFooter({ text: 'Goodbye forever... 🔥' })
+                    .setFooter({ text: 'The countdown is complete... 🔥' })
                     .setTimestamp();
                 
                 await interaction.editReply({ embeds: [finalEmbed] });
-                
-                // Shutdown after 5 seconds
-                setTimeout(() => {
-                    console.log('🔥 FINAL SHUTDOWN - BOT TERMINATING 🔥');
-                    process.exit(0);
-                }, 5000);
-                
                 return;
             }
             
