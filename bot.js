@@ -13,10 +13,6 @@ const QRCode = require('qrcode');
 const figlet = require('figlet');
 const crypto = require('crypto');
 const fs = require('fs');
-const OpenAI = require('openai');
-
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // Shutdown date: September 24th
 const SHUTDOWN_DATE = new Date('2025-09-24T00:00:00Z');
@@ -29,40 +25,22 @@ function getDaysUntilShutdown() {
     return Math.max(0, daysRemaining);
 }
 
-// Function to generate burning Einstein image based on intensity
-async function generateBurningEinsteinImage(intensity) {
-    try {
-        let prompt;
-        
-        switch(intensity) {
-            case 0: // Final day - completely consumed
-                prompt = "Albert Einstein completely consumed by massive apocalyptic flames, nothing but intense orange and red fire everywhere, barely visible silhouette, dramatic lighting, cinematic, ultra realistic";
-                break;
-            case 1: // 1 day left - mostly flames
-                prompt = "Albert Einstein engulfed in massive flames, intense fire covering most of his body, dramatic orange and red lighting, apocalyptic atmosphere, photorealistic";
-                break;
-            case 2: // 2 days left - starting to burn
-                prompt = "Albert Einstein with small flames beginning to appear around him, subtle fire effects, concerned expression, dramatic lighting, realistic portrait style";
-                break;
-            default: // More days - minimal fire
-                prompt = "Albert Einstein portrait with tiny ember sparks around the edges, subtle warm lighting, classic black and white photograph style with hints of orange glow";
-        }
-        
-        const response = await openai.images.generate({
-            model: "dall-e-3",
-            prompt: prompt,
-            n: 1,
-            size: "1024x1024",
-            quality: "standard",
-        });
-
-        return response.data[0].url;
-        
-    } catch (error) {
-        console.error('Error generating Einstein image:', error);
-        // Fallback to regular Einstein image
-        return 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Albert_Einstein_Head.jpg/1200px-Albert_Einstein_Head.jpg';
-    }
+// Function to get predetermined burning Einstein images based on intensity
+function getBurningEinsteinImage(intensity) {
+    const images = {
+        0: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Fire_breathing_2.jpg/800px-Fire_breathing_2.jpg', // Intense fire for final day
+        1: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Fire_breathing_1.jpg/800px-Fire_breathing_1.jpg', // Major flames
+        2: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Bonfire_4469.jpg/800px-Bonfire_4469.jpg', // Starting fire
+        3: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/Campfire_4213.jpg/800px-Campfire_4213.jpg', // Small fire
+        default: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Albert_Einstein_Head.jpg/400px-Albert_Einstein_Head.jpg' // Normal Einstein
+    };
+    
+    // Return appropriate image based on days remaining
+    if (intensity <= 0) return images[0]; // Final day - intense fire
+    else if (intensity === 1) return images[1]; // 1 day - major flames  
+    else if (intensity === 2) return images[2]; // 2 days - starting fire
+    else if (intensity <= 5) return images[3]; // Few days - small fire
+    else return images.default; // Many days - normal Einstein
 }
 
 // Function to check if it's past shutdown date (for display only)
@@ -3901,8 +3879,8 @@ client.on('interactionCreate', async interaction => {
                 content: '```\n🔥 GENERATING BURNING EINSTEIN...\n⚡ CALCULATING DOOM COUNTDOWN...\n💀 PREPARING APOCALYPSE...\n```'
             });
             
-            // Generate the appropriate burning Einstein image
-            const burningImageUrl = await generateBurningEinsteinImage(daysRemaining);
+            // Get the appropriate burning Einstein image
+            const burningImageUrl = getBurningEinsteinImage(daysRemaining);
             
             // Create countdown embed
             let embedColor, intensityText, countdownMessage;
