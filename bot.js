@@ -1977,6 +1977,12 @@ const commands = [
             }
         ]
     },
+    {
+        name: 'die',
+        description: 'View the countdown to bot shutdown with burning Einstein',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
+    },
 ];
 
 // Register commands globally when bot starts
