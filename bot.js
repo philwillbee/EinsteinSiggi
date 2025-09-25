@@ -41,6 +41,21 @@ try {
     console.warn('Could not load mallon data:', error.message);
 }
 
+// Load Michael's messages data (filtered Requiem messages)
+let michaelData = null;
+try {
+    const michaelJson = fs.readFileSync('./michael_messages.json', 'utf8');
+    const fullData = JSON.parse(michaelJson);
+    // Use the already filtered messages from Requiem
+    michaelData = fullData.messages.filter(msg => 
+        msg.content && 
+        msg.content.trim() !== ''
+    );
+    console.log(`Michael data loaded successfully - ${michaelData.length} messages`);
+} catch (error) {
+    console.warn('Could not load michael data:', error.message);
+}
+
 // Note: Removed pagination store - now using direct command-based navigation
 
 // Only load dotenv in development (not on Railway)
@@ -1891,6 +1906,12 @@ const commands = [
         contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
     },
     {
+        name: 'michael',
+        description: 'Get a random food/delivery related message from Requiem\'s Discord history',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
+    },
+    {
         name: 'boom',
         description: 'Explode a user with dramatic effects!',
         integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
@@ -3347,6 +3368,41 @@ client.on('interactionCreate', async interaction => {
             console.error('Error in mallon command:', error);
             await interaction.reply({ 
                 content: 'Sorry, something went wrong getting a message from Mallon\'s history!', 
+                ephemeral: true 
+            });
+        }
+    } else if (commandName === 'michael') {
+        try {
+            if (!michaelData || michaelData.length === 0) {
+                await interaction.reply({ 
+                    content: 'Sorry, Michael\'s message data is not available.', 
+                    ephemeral: true 
+                });
+                return;
+            }
+
+            // Select a random message from Michael's data
+            const randomMessage = michaelData[Math.floor(Math.random() * michaelData.length)];
+            
+            // Format the timestamp to a readable date
+            const messageDate = new Date(randomMessage.timestamp);
+            const formattedDate = messageDate.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+
+            // Create the response with the message and small date text
+            const response = `${randomMessage.content}\n\`${formattedDate}\``;
+
+            await interaction.reply(response);
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Michael command used by ${interaction.user.tag} in ${location} - Message from ${formattedDate}`);
+        } catch (error) {
+            console.error('Error in michael command:', error);
+            await interaction.reply({ 
+                content: 'Sorry, something went wrong getting a message from Requiem\'s history!', 
                 ephemeral: true 
             });
         }
