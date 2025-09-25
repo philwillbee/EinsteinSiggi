@@ -13,6 +13,7 @@ const QRCode = require('qrcode');
 const figlet = require('figlet');
 const crypto = require('crypto');
 const fs = require('fs');
+const { Pool } = require('pg');
 
 
 // Load Catechism data
@@ -61,6 +62,264 @@ try {
 // Only load dotenv in development (not on Railway)
 if (process.env.NODE_ENV !== 'production') {
     require('dotenv').config();
+}
+
+// Database connection setup
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
+
+// Database initialization function
+async function initializeDatabase() {
+    try {
+        console.log('Initializing database schema...');
+        
+        // Create users table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                user_id TEXT NOT NULL,
+                guild_id TEXT NOT NULL,
+                wallet_balance INTEGER DEFAULT 0,
+                bank_balance INTEGER DEFAULT 0,
+                bank_limit INTEGER DEFAULT 5000,
+                total_earned INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_daily TIMESTAMP,
+                daily_streak INTEGER DEFAULT 0,
+                PRIMARY KEY (user_id, guild_id)
+            )
+        `);
+        
+        // Create shop_items table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS shop_items (
+                item_id SERIAL PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                description TEXT,
+                price INTEGER NOT NULL,
+                category VARCHAR(50),
+                emoji VARCHAR(10),
+                is_active BOOLEAN DEFAULT true,
+                guild_id TEXT
+            )
+        `);
+        
+        // Create user_items table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS user_items (
+                user_id TEXT,
+                guild_id TEXT,
+                item_id INTEGER,
+                quantity INTEGER DEFAULT 1,
+                obtained_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, guild_id, item_id),
+                FOREIGN KEY (item_id) REFERENCES shop_items(item_id)
+            )
+        `);
+        
+        // Create cooldowns table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS cooldowns (
+                user_id TEXT,
+                guild_id TEXT,
+                command_name VARCHAR(50),
+                expires_at TIMESTAMP,
+                PRIMARY KEY (user_id, guild_id, command_name)
+            )
+        `);
+        
+        // Create transactions table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS transactions (
+                transaction_id SERIAL PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                guild_id TEXT NOT NULL,
+                transaction_type VARCHAR(20),
+                amount INTEGER,
+                description TEXT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        // Check if shop needs to be seeded
+        const itemCount = await pool.query('SELECT COUNT(*) FROM shop_items');
+        if (parseInt(itemCount.rows[0].count) === 0) {
+            console.log('Seeding shop items...');
+            await pool.query(`
+                INSERT INTO shop_items (name, description, price, category, emoji) VALUES 
+                ('Chicken', 'A feisty fighting chicken! Use with /chickenfight', 150, 'pets', '🐔'),
+                ('Golden Chicken', 'A legendary golden chicken with superior fighting skills', 500, 'pets', '🐓'),
+                ('Lottery Ticket', 'Try your luck! Could win big or lose it all', 100, 'gambling', '🎫'),
+                ('Protection Shield', 'Reduces chance of being robbed successfully', 300, 'defense', '🛡️'),
+                ('Lucky Charm', 'Increases success rate of risky commands', 400, 'luck', '🍀'),
+                ('Mallon Memorial Badge', 'A special badge honoring our friend Mallon', 1000, 'special', '🎖️'),
+                ('Energy Drink', 'Reduces work cooldown by 5 minutes', 75, 'consumable', '⚡'),
+                ('Bank Upgrade', 'Increases bank limit by 2000 MallonCoins', 800, 'upgrade', '🏦'),
+                ('Robber Mask', 'Increases steal success rate', 250, 'criminal', '🎭'),
+                ('Diamond Ring', 'Pure flex - shows your wealth', 2000, 'luxury', '💎')
+            `);
+        }
+        
+        console.log('Database initialization complete!');
+        
+    } catch (error) {
+        console.error('Database initialization error:', error);
+        // Don't crash the bot if database init fails, but log the error
+    }
+}
+
+// MallonCoin Economy System
+const ECONOMY = {
+    WORK_COOLDOWN: 15 * 60 * 1000, // 15 minutes
+    BENEFITS_COOLDOWN: 60 * 60 * 1000, // 1 hour
+    DAILY_COOLDOWN: 24 * 60 * 60 * 1000, // 24 hours
+    STEAL_COOLDOWN: 30 * 60 * 1000, // 30 minutes
+    CRIME_COOLDOWN: 45 * 60 * 1000, // 45 minutes
+    DEFAULT_BANK_LIMIT: 5000,
+    WORK_MIN: 50,
+    WORK_MAX: 200,
+    BENEFITS_AMOUNT: 75,
+    DAILY_MIN: 200,
+    DAILY_MAX: 500,
+    STEAL_SUCCESS_RATE: 0.4,
+    CRIME_SUCCESS_RATE: 0.3
+};
+
+// Work messages for variety
+const WORK_MESSAGES = [
+    "You delivered packages and earned **{amount}** MallonCoins! 📦",
+    "You helped an old lady cross the street and she tipped you **{amount}** MallonCoins! 👵",
+    "You found **{amount}** MallonCoins while cleaning gutters! 🧹",
+    "You sold homemade cookies and made **{amount}** MallonCoins! 🍪",
+    "You walked dogs and earned **{amount}** MallonCoins! 🐕",
+    "You mowed lawns and got **{amount}** MallonCoins! 🌱",
+    "You tutored kids and received **{amount}** MallonCoins! 📚",
+    "You washed cars and earned **{amount}** MallonCoins! 🚗",
+    "You helped with tech support and got **{amount}** MallonCoins! 💻",
+    "You performed street magic and earned **{amount}** MallonCoins in tips! 🎩"
+];
+
+// Crime messages for variety
+const CRIME_MESSAGES = {
+    success: [
+        "You successfully pickpocketed someone and got **{amount}** MallonCoins! 🕵️",
+        "You hacked into a crypto wallet and stole **{amount}** MallonCoins! 💻",
+        "You found an unlocked car and took **{amount}** MallonCoins from the cup holder! 🚗",
+        "You scammed someone online and got **{amount}** MallonCoins! 📱",
+        "You robbed a vending machine and got **{amount}** MallonCoins! 🏪"
+    ],
+    failure: [
+        "You got caught pickpocketing and lost **{amount}** MallonCoins in fines! 👮",
+        "Your hacking attempt failed and you lost **{amount}** MallonCoins on tools! 💻",
+        "You set off a car alarm and lost **{amount}** MallonCoins running away! 🚨",
+        "Your scam backfired and you lost **{amount}** MallonCoins! 📱",
+        "Security caught you and you paid **{amount}** MallonCoins in fines! 🛡️"
+    ]
+};
+
+// Database helper functions
+async function getUserEconomyData(userId, guildId) {
+    try {
+        const result = await pool.query(
+            'SELECT * FROM users WHERE user_id = $1 AND guild_id = $2',
+            [userId, guildId]
+        );
+        
+        if (result.rows.length === 0) {
+            // Create new user
+            const insertResult = await pool.query(
+                'INSERT INTO users (user_id, guild_id) VALUES ($1, $2) RETURNING *',
+                [userId, guildId]
+            );
+            return insertResult.rows[0];
+        }
+        
+        return result.rows[0];
+    } catch (error) {
+        console.error('Database error:', error);
+        return null;
+    }
+}
+
+async function updateUserBalance(userId, guildId, type, amount) {
+    try {
+        const column = type === 'wallet' ? 'wallet_balance' : 'bank_balance';
+        const result = await pool.query(
+            `UPDATE users SET ${column} = ${column} + $1, total_earned = total_earned + GREATEST(0, $1) WHERE user_id = $2 AND guild_id = $3 RETURNING *`,
+            [amount, userId, guildId]
+        );
+        return result.rows[0];
+    } catch (error) {
+        console.error('Balance update error:', error);
+        return null;
+    }
+}
+
+async function checkCooldown(userId, guildId, command) {
+    try {
+        const result = await pool.query(
+            'SELECT expires_at FROM cooldowns WHERE user_id = $1 AND guild_id = $2 AND command_name = $3',
+            [userId, guildId, command]
+        );
+        
+        if (result.rows.length > 0) {
+            const expiresAt = new Date(result.rows[0].expires_at);
+            if (new Date() < expiresAt) {
+                return expiresAt;
+            }
+        }
+        return null;
+    } catch (error) {
+        console.error('Cooldown check error:', error);
+        return null;
+    }
+}
+
+async function setCooldown(userId, guildId, command, milliseconds) {
+    try {
+        const expiresAt = new Date(Date.now() + milliseconds);
+        await pool.query(
+            'INSERT INTO cooldowns (user_id, guild_id, command_name, expires_at) VALUES ($1, $2, $3, $4) ON CONFLICT (user_id, guild_id, command_name) DO UPDATE SET expires_at = $4',
+            [userId, guildId, command, expiresAt]
+        );
+    } catch (error) {
+        console.error('Cooldown set error:', error);
+    }
+}
+
+async function logTransaction(userId, guildId, type, amount, description) {
+    try {
+        await pool.query(
+            'INSERT INTO transactions (user_id, guild_id, transaction_type, amount, description) VALUES ($1, $2, $3, $4, $5)',
+            [userId, guildId, type, amount, description]
+        );
+    } catch (error) {
+        console.error('Transaction log error:', error);
+    }
+}
+
+function formatMallonCoins(amount) {
+    return `${amount.toLocaleString()} 🪙`;
+}
+
+function getRandomWorkMessage(amount) {
+    const message = WORK_MESSAGES[Math.floor(Math.random() * WORK_MESSAGES.length)];
+    return message.replace('{amount}', formatMallonCoins(amount));
+}
+
+function formatCooldown(milliseconds) {
+    const seconds = Math.ceil(milliseconds / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    
+    if (hours > 0) {
+        return `${hours}h ${minutes % 60}m`;
+    } else if (minutes > 0) {
+        return `${minutes}m ${seconds % 60}s`;
+    } else {
+        return `${seconds}s`;
+    }
 }
 
 // Create a new client instance
@@ -2079,9 +2338,153 @@ const commands = [
     },
     {
         name: 'blackjack',
-        description: 'Start a game of Blackjack',
+        description: 'Play a game of blackjack with MallonCoin betting',
         integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
-        contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
+        contexts: [0, 1, 2], // 0 = guild, 1 = bot DM, 2 = private channel
+        options: [
+            {
+                name: 'bet',
+                type: 4, // INTEGER type
+                description: 'Amount of MallonCoins to bet (default: 50)',
+                required: false,
+                min_value: 10,
+                max_value: 1000
+            }
+        ]
+    },
+    {
+        name: 'work',
+        description: 'Work to earn MallonCoins (15 minute cooldown)',
+        integration_types: [0, 1],
+        contexts: [0, 1, 2]
+    },
+    {
+        name: 'benefits',
+        description: 'Collect your welfare payment (1 hour cooldown)',
+        integration_types: [0, 1],
+        contexts: [0, 1, 2]
+    },
+    {
+        name: 'daily',
+        description: 'Collect your daily MallonCoin reward',
+        integration_types: [0, 1],
+        contexts: [0, 1, 2]
+    },
+    {
+        name: 'balance',
+        description: 'Check your MallonCoin balance',
+        integration_types: [0, 1],
+        contexts: [0, 1, 2],
+        options: [
+            {
+                name: 'user',
+                type: 6, // USER type
+                description: 'Check another user\'s balance',
+                required: false
+            }
+        ]
+    },
+    {
+        name: 'bank',
+        description: 'Deposit MallonCoins safely in your bank',
+        integration_types: [0, 1],
+        contexts: [0, 1, 2],
+        options: [
+            {
+                name: 'amount',
+                type: 3, // STRING type to handle "all"
+                description: 'Amount to deposit (or "all" for everything)',
+                required: true
+            }
+        ]
+    },
+    {
+        name: 'withdraw',
+        description: 'Withdraw MallonCoins from your bank',
+        integration_types: [0, 1],
+        contexts: [0, 1, 2],
+        options: [
+            {
+                name: 'amount',
+                type: 3, // STRING type to handle "all"
+                description: 'Amount to withdraw (or "all" for everything)',
+                required: true
+            }
+        ]
+    },
+    {
+        name: 'leaderboard',
+        description: 'View the richest players',
+        integration_types: [0, 1],
+        contexts: [0, 1, 2]
+    },
+    {
+        name: 'steal',
+        description: 'Try to steal MallonCoins from another user',
+        integration_types: [0, 1],
+        contexts: [0, 1, 2],
+        options: [
+            {
+                name: 'target',
+                type: 6, // USER type
+                description: 'User to steal from',
+                required: true
+            }
+        ]
+    },
+    {
+        name: 'crime',
+        description: 'Commit a crime for high risk/reward MallonCoins',
+        integration_types: [0, 1],
+        contexts: [0, 1, 2]
+    },
+    {
+        name: 'shop',
+        description: 'Browse the MallonCoin shop',
+        integration_types: [0, 1],
+        contexts: [0, 1, 2]
+    },
+    {
+        name: 'buy',
+        description: 'Purchase an item from the shop',
+        integration_types: [0, 1],
+        contexts: [0, 1, 2],
+        options: [
+            {
+                name: 'item',
+                type: 3, // STRING type
+                description: 'Name of the item to buy',
+                required: true
+            }
+        ]
+    },
+    {
+        name: 'inventory',
+        description: 'View your items',
+        integration_types: [0, 1],
+        contexts: [0, 1, 2]
+    },
+    {
+        name: 'chickenfight',
+        description: 'Battle your chicken against another player',
+        integration_types: [0, 1],
+        contexts: [0, 1, 2],
+        options: [
+            {
+                name: 'opponent',
+                type: 6, // USER type
+                description: 'Player to battle against',
+                required: true
+            },
+            {
+                name: 'bet',
+                type: 4, // INTEGER type
+                description: 'Amount to bet on the fight',
+                required: false,
+                min_value: 10,
+                max_value: 500
+            }
+        ]
     },
 ];
 
@@ -2111,8 +2514,11 @@ client.once('clientReady', async () => {
     console.log(`${client.user.tag} has connected to Discord!`);
     console.log(`Bot is in ${client.guilds.cache.size} guilds`);
     
+    // Initialize database schema and seed data
+    await initializeDatabase();
+    
     // Set bot status
-    client.user.setActivity('/siggi commands', { type: ActivityType.Listening });
+    client.user.setActivity('MallonCoin Economy & /siggi commands', { type: ActivityType.Listening });
     
     // Register global commands so they work in DMs
     await registerGlobalCommands();
@@ -3965,9 +4371,694 @@ client.on('interactionCreate', async interaction => {
                 ephemeral: true 
             });
         }
+    } else if (commandName === 'work') {
+        try {
+            const userId = interaction.user.id;
+            const guildId = interaction.guild?.id || 'dm';
+            
+            // Check cooldown
+            const cooldownExpiry = await checkCooldown(userId, guildId, 'work');
+            if (cooldownExpiry) {
+                const timeLeft = cooldownExpiry - new Date();
+                return await interaction.reply({
+                    content: `⏰ You need to wait **${formatCooldown(timeLeft)}** before working again!`,
+                    ephemeral: true
+                });
+            }
+            
+            // Generate random work amount
+            const amount = Math.floor(Math.random() * (ECONOMY.WORK_MAX - ECONOMY.WORK_MIN + 1)) + ECONOMY.WORK_MIN;
+            
+            // Add to wallet
+            await updateUserBalance(userId, guildId, 'wallet', amount);
+            await setCooldown(userId, guildId, 'work', ECONOMY.WORK_COOLDOWN);
+            await logTransaction(userId, guildId, 'work', amount, 'Work earnings');
+            
+            const workMessage = getRandomWorkMessage(amount);
+            
+            const embed = new EmbedBuilder()
+                .setColor(0x00FF00)
+                .setTitle('💼 Work Complete!')
+                .setDescription(workMessage)
+                .setFooter({ text: `Next work available in ${formatCooldown(ECONOMY.WORK_COOLDOWN)}` })
+                .setTimestamp();
+                
+            await interaction.reply({ embeds: [embed] });
+            
+        } catch (error) {
+            console.error('Error in work command:', error);
+            await interaction.reply({ content: '❌ Something went wrong with work!', ephemeral: true });
+        }
+    
+    } else if (commandName === 'benefits') {
+        try {
+            const userId = interaction.user.id;
+            const guildId = interaction.guild?.id || 'dm';
+            
+            // Check cooldown
+            const cooldownExpiry = await checkCooldown(userId, guildId, 'benefits');
+            if (cooldownExpiry) {
+                const timeLeft = cooldownExpiry - new Date();
+                return await interaction.reply({
+                    content: `⏰ You need to wait **${formatCooldown(timeLeft)}** before collecting benefits again!`,
+                    ephemeral: true
+                });
+            }
+            
+            await updateUserBalance(userId, guildId, 'wallet', ECONOMY.BENEFITS_AMOUNT);
+            await setCooldown(userId, guildId, 'benefits', ECONOMY.BENEFITS_COOLDOWN);
+            await logTransaction(userId, guildId, 'benefits', ECONOMY.BENEFITS_AMOUNT, 'Welfare payment');
+            
+            const embed = new EmbedBuilder()
+                .setColor(0x0099FF)
+                .setTitle('🏛️ Government Benefits')
+                .setDescription(`You received your welfare payment of **${formatMallonCoins(ECONOMY.BENEFITS_AMOUNT)}**! 💰`)
+                .setFooter({ text: `Next payment in ${formatCooldown(ECONOMY.BENEFITS_COOLDOWN)}` })
+                .setTimestamp();
+                
+            await interaction.reply({ embeds: [embed] });
+            
+        } catch (error) {
+            console.error('Error in benefits command:', error);
+            await interaction.reply({ content: '❌ Something went wrong with benefits!', ephemeral: true });
+        }
+    
+    } else if (commandName === 'daily') {
+        try {
+            const userId = interaction.user.id;
+            const guildId = interaction.guild?.id || 'dm';
+            
+            // Check cooldown
+            const cooldownExpiry = await checkCooldown(userId, guildId, 'daily');
+            if (cooldownExpiry) {
+                const timeLeft = cooldownExpiry - new Date();
+                return await interaction.reply({
+                    content: `⏰ You need to wait **${formatCooldown(timeLeft)}** before collecting your daily reward!`,
+                    ephemeral: true
+                });
+            }
+            
+            const amount = Math.floor(Math.random() * (ECONOMY.DAILY_MAX - ECONOMY.DAILY_MIN + 1)) + ECONOMY.DAILY_MIN;
+            
+            await updateUserBalance(userId, guildId, 'wallet', amount);
+            await setCooldown(userId, guildId, 'daily', ECONOMY.DAILY_COOLDOWN);
+            await logTransaction(userId, guildId, 'daily', amount, 'Daily reward');
+            
+            const embed = new EmbedBuilder()
+                .setColor(0xFFD700)
+                .setTitle('🌅 Daily Reward!')
+                .setDescription(`You claimed your daily reward of **${formatMallonCoins(amount)}**! 🎁`)
+                .setFooter({ text: 'Come back tomorrow for another reward!' })
+                .setTimestamp();
+                
+            await interaction.reply({ embeds: [embed] });
+            
+        } catch (error) {
+            console.error('Error in daily command:', error);
+            await interaction.reply({ content: '❌ Something went wrong with daily reward!', ephemeral: true });
+        }
+    
+    } else if (commandName === 'balance') {
+        try {
+            const targetUser = interaction.options.getUser('user') || interaction.user;
+            const userId = targetUser.id;
+            const guildId = interaction.guild?.id || 'dm';
+            
+            const userData = await getUserEconomyData(userId, guildId);
+            if (!userData) {
+                return await interaction.reply({ content: '❌ Database error!', ephemeral: true });
+            }
+            
+            const totalBalance = userData.wallet_balance + userData.bank_balance;
+            const bankUsage = ((userData.bank_balance / userData.bank_limit) * 100).toFixed(1);
+            
+            const embed = new EmbedBuilder()
+                .setColor(0x00FF00)
+                .setTitle(`💰 ${targetUser.username}'s Balance`)
+                .addFields([
+                    { name: '👛 Wallet', value: formatMallonCoins(userData.wallet_balance), inline: true },
+                    { name: '🏦 Bank', value: `${formatMallonCoins(userData.bank_balance)} / ${formatMallonCoins(userData.bank_limit)} (${bankUsage}%)`, inline: true },
+                    { name: '💎 Total Worth', value: formatMallonCoins(totalBalance), inline: true }
+                ])
+                .setThumbnail(targetUser.displayAvatarURL())
+                .setFooter({ text: `Total earned: ${formatMallonCoins(userData.total_earned)}` })
+                .setTimestamp();
+                
+            await interaction.reply({ embeds: [embed] });
+            
+        } catch (error) {
+            console.error('Error in balance command:', error);
+            await interaction.reply({ content: '❌ Something went wrong checking balance!', ephemeral: true });
+        }
+    
+    } else if (commandName === 'bank') {
+        try {
+            const userId = interaction.user.id;
+            const guildId = interaction.guild?.id || 'dm';
+            const amountInput = interaction.options.getString('amount');
+            
+            const userData = await getUserEconomyData(userId, guildId);
+            if (!userData) {
+                return await interaction.reply({ content: '❌ Database error!', ephemeral: true });
+            }
+            
+            let amount;
+            if (amountInput.toLowerCase() === 'all') {
+                amount = userData.wallet_balance;
+            } else {
+                amount = parseInt(amountInput);
+                if (isNaN(amount) || amount <= 0) {
+                    return await interaction.reply({ content: '❌ Please enter a valid amount or "all"!', ephemeral: true });
+                }
+            }
+            
+            if (amount > userData.wallet_balance) {
+                return await interaction.reply({ content: '❌ You don\'t have enough MallonCoins in your wallet!', ephemeral: true });
+            }
+            
+            const spaceLeft = userData.bank_limit - userData.bank_balance;
+            if (amount > spaceLeft) {
+                return await interaction.reply({ 
+                    content: `❌ Your bank can only hold ${formatMallonCoins(spaceLeft)} more! (${formatMallonCoins(userData.bank_balance)}/${formatMallonCoins(userData.bank_limit)})`, 
+                    ephemeral: true 
+                });
+            }
+            
+            // Transfer from wallet to bank
+            await updateUserBalance(userId, guildId, 'wallet', -amount);
+            await updateUserBalance(userId, guildId, 'bank', amount);
+            await logTransaction(userId, guildId, 'deposit', amount, 'Bank deposit');
+            
+            const embed = new EmbedBuilder()
+                .setColor(0x0099FF)
+                .setTitle('🏦 Bank Deposit')
+                .setDescription(`Successfully deposited **${formatMallonCoins(amount)}** into your bank!`)
+                .addFields([
+                    { name: '💰 New Bank Balance', value: formatMallonCoins(userData.bank_balance + amount), inline: true },
+                    { name: '👛 Wallet Balance', value: formatMallonCoins(userData.wallet_balance - amount), inline: true }
+                ])
+                .setTimestamp();
+                
+            await interaction.reply({ embeds: [embed] });
+            
+        } catch (error) {
+            console.error('Error in bank command:', error);
+            await interaction.reply({ content: '❌ Something went wrong with banking!', ephemeral: true });
+        }
+    
+    } else if (commandName === 'withdraw') {
+        try {
+            const userId = interaction.user.id;
+            const guildId = interaction.guild?.id || 'dm';
+            const amountInput = interaction.options.getString('amount');
+            
+            const userData = await getUserEconomyData(userId, guildId);
+            if (!userData) {
+                return await interaction.reply({ content: '❌ Database error!', ephemeral: true });
+            }
+            
+            let amount;
+            if (amountInput.toLowerCase() === 'all') {
+                amount = userData.bank_balance;
+            } else {
+                amount = parseInt(amountInput);
+                if (isNaN(amount) || amount <= 0) {
+                    return await interaction.reply({ content: '❌ Please enter a valid amount or "all"!', ephemeral: true });
+                }
+            }
+            
+            if (amount > userData.bank_balance) {
+                return await interaction.reply({ content: '❌ You don\'t have enough MallonCoins in your bank!', ephemeral: true });
+            }
+            
+            // Transfer from bank to wallet
+            await updateUserBalance(userId, guildId, 'bank', -amount);
+            await updateUserBalance(userId, guildId, 'wallet', amount);
+            await logTransaction(userId, guildId, 'withdraw', amount, 'Bank withdrawal');
+            
+            const embed = new EmbedBuilder()
+                .setColor(0x00FF00)
+                .setTitle('🏦 Bank Withdrawal')
+                .setDescription(`Successfully withdrew **${formatMallonCoins(amount)}** from your bank!`)
+                .addFields([
+                    { name: '👛 New Wallet Balance', value: formatMallonCoins(userData.wallet_balance + amount), inline: true },
+                    { name: '💰 Bank Balance', value: formatMallonCoins(userData.bank_balance - amount), inline: true }
+                ])
+                .setTimestamp();
+                
+            await interaction.reply({ embeds: [embed] });
+            
+        } catch (error) {
+            console.error('Error in withdraw command:', error);
+            await interaction.reply({ content: '❌ Something went wrong with withdrawal!', ephemeral: true });
+        }
+        
+    } else if (commandName === 'leaderboard') {
+        try {
+            const guildId = interaction.guild?.id || 'dm';
+            
+            const result = await pool.query(
+                'SELECT user_id, wallet_balance + bank_balance as total_balance FROM users WHERE guild_id = $1 ORDER BY total_balance DESC LIMIT 10',
+                [guildId]
+            );
+            
+            if (result.rows.length === 0) {
+                return await interaction.reply({ content: '🏆 No users found! Start earning MallonCoins to appear on the leaderboard!', ephemeral: true });
+            }
+            
+            let leaderboard = '';
+            for (let i = 0; i < result.rows.length; i++) {
+                const row = result.rows[i];
+                const user = await client.users.fetch(row.user_id).catch(() => null);
+                const username = user ? user.username : 'Unknown User';
+                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+                leaderboard += `${medal} **${username}** - ${formatMallonCoins(row.total_balance)}\n`;
+            }
+            
+            const embed = new EmbedBuilder()
+                .setColor(0xFFD700)
+                .setTitle('🏆 MallonCoin Leaderboard')
+                .setDescription(leaderboard)
+                .setFooter({ text: 'Work hard to climb the ranks!' })
+                .setTimestamp();
+                
+            await interaction.reply({ embeds: [embed] });
+            
+        } catch (error) {
+            console.error('Error in leaderboard command:', error);
+            await interaction.reply({ content: '❌ Something went wrong with the leaderboard!', ephemeral: true });
+        }
+    
+    } else if (commandName === 'steal') {
+        try {
+            const userId = interaction.user.id;
+            const guildId = interaction.guild?.id || 'dm';
+            const targetUser = interaction.options.getUser('target');
+            
+            if (targetUser.id === userId) {
+                return await interaction.reply({ content: '❌ You can\'t steal from yourself!', ephemeral: true });
+            }
+            
+            if (targetUser.bot) {
+                return await interaction.reply({ content: '❌ You can\'t steal from bots!', ephemeral: true });
+            }
+            
+            // Check cooldown
+            const cooldownExpiry = await checkCooldown(userId, guildId, 'steal');
+            if (cooldownExpiry) {
+                const timeLeft = cooldownExpiry - new Date();
+                return await interaction.reply({
+                    content: `⏰ You need to wait **${formatCooldown(timeLeft)}** before stealing again!`,
+                    ephemeral: true
+                });
+            }
+            
+            const userData = await getUserEconomyData(userId, guildId);
+            const targetData = await getUserEconomyData(targetUser.id, guildId);
+            
+            if (!userData || !targetData) {
+                return await interaction.reply({ content: '❌ Database error!', ephemeral: true });
+            }
+            
+            if (targetData.wallet_balance < 100) {
+                return await interaction.reply({ content: `❌ ${targetUser.username} doesn't have enough MallonCoins to steal from! (minimum 100)`, ephemeral: true });
+            }
+            
+            const success = Math.random() < ECONOMY.STEAL_SUCCESS_RATE;
+            await setCooldown(userId, guildId, 'steal', ECONOMY.STEAL_COOLDOWN);
+            
+            if (success) {
+                const stolenAmount = Math.floor(targetData.wallet_balance * (0.1 + Math.random() * 0.15)); // 10-25%
+                
+                await updateUserBalance(targetUser.id, guildId, 'wallet', -stolenAmount);
+                await updateUserBalance(userId, guildId, 'wallet', stolenAmount);
+                await logTransaction(userId, guildId, 'steal', stolenAmount, `Stole from ${targetUser.username}`);
+                await logTransaction(targetUser.id, guildId, 'stolen', -stolenAmount, `Stolen by ${interaction.user.username}`);
+                
+                const embed = new EmbedBuilder()
+                    .setColor(0xFF0000)
+                    .setTitle('🦹 Theft Successful!')
+                    .setDescription(`You successfully stole **${formatMallonCoins(stolenAmount)}** from ${targetUser.username}! 💰`)
+                    .setFooter({ text: 'Crime doesn\'t pay... or does it?' })
+                    .setTimestamp();
+                    
+                await interaction.reply({ embeds: [embed] });
+                
+                // Try to notify the victim
+                try {
+                    await targetUser.send(`🚨 You've been robbed! ${interaction.user.username} stole **${formatMallonCoins(stolenAmount)}** from you!`);
+                } catch (error) {
+                    // Ignore if can't DM
+                }
+                
+            } else {
+                const fine = Math.floor(50 + Math.random() * 100); // 50-150 fine
+                
+                await updateUserBalance(userId, guildId, 'wallet', -fine);
+                await logTransaction(userId, guildId, 'steal_fail', -fine, 'Failed theft attempt');
+                
+                const embed = new EmbedBuilder()
+                    .setColor(0xFF0000)
+                    .setTitle('🚨 Theft Failed!')
+                    .setDescription(`You got caught trying to steal from ${targetUser.username}! You paid **${formatMallonCoins(fine)}** in fines! 👮`)
+                    .setFooter({ text: 'Better luck next time... or try being honest!' })
+                    .setTimestamp();
+                    
+                await interaction.reply({ embeds: [embed] });
+            }
+            
+        } catch (error) {
+            console.error('Error in steal command:', error);
+            await interaction.reply({ content: '❌ Something went wrong with stealing!', ephemeral: true });
+        }
+    
+    } else if (commandName === 'crime') {
+        try {
+            const userId = interaction.user.id;
+            const guildId = interaction.guild?.id || 'dm';
+            
+            // Check cooldown
+            const cooldownExpiry = await checkCooldown(userId, guildId, 'crime');
+            if (cooldownExpiry) {
+                const timeLeft = cooldownExpiry - new Date();
+                return await interaction.reply({
+                    content: `⏰ You need to wait **${formatCooldown(timeLeft)}** before committing another crime!`,
+                    ephemeral: true
+                });
+            }
+            
+            const success = Math.random() < ECONOMY.CRIME_SUCCESS_RATE;
+            await setCooldown(userId, guildId, 'crime', ECONOMY.CRIME_COOLDOWN);
+            
+            if (success) {
+                const amount = Math.floor(200 + Math.random() * 300); // 200-500
+                await updateUserBalance(userId, guildId, 'wallet', amount);
+                await logTransaction(userId, guildId, 'crime', amount, 'Successful crime');
+                
+                const message = CRIME_MESSAGES.success[Math.floor(Math.random() * CRIME_MESSAGES.success.length)];
+                
+                const embed = new EmbedBuilder()
+                    .setColor(0x00FF00)
+                    .setTitle('🦹 Crime Successful!')
+                    .setDescription(message.replace('{amount}', formatMallonCoins(amount)))
+                    .setFooter({ text: 'Don\'t let the cops catch you!' })
+                    .setTimestamp();
+                    
+                await interaction.reply({ embeds: [embed] });
+                
+            } else {
+                const loss = Math.floor(100 + Math.random() * 200); // 100-300 loss
+                await updateUserBalance(userId, guildId, 'wallet', -loss);
+                await logTransaction(userId, guildId, 'crime_fail', -loss, 'Failed crime attempt');
+                
+                const message = CRIME_MESSAGES.failure[Math.floor(Math.random() * CRIME_MESSAGES.failure.length)];
+                
+                const embed = new EmbedBuilder()
+                    .setColor(0xFF0000)
+                    .setTitle('🚨 Crime Failed!')
+                    .setDescription(message.replace('{amount}', formatMallonCoins(loss)))
+                    .setFooter({ text: 'Crime doesn\'t always pay!' })
+                    .setTimestamp();
+                    
+                await interaction.reply({ embeds: [embed] });
+            }
+            
+        } catch (error) {
+            console.error('Error in crime command:', error);
+            await interaction.reply({ content: '❌ Something went wrong with crime!', ephemeral: true });
+        }
+    
+    } else if (commandName === 'shop') {
+        try {
+            const result = await pool.query(
+                'SELECT * FROM shop_items WHERE is_active = true ORDER BY price ASC'
+            );
+            
+            if (result.rows.length === 0) {
+                return await interaction.reply({ content: '🏪 The shop is currently empty!', ephemeral: true });
+            }
+            
+            let shopItems = '';
+            for (const item of result.rows) {
+                shopItems += `${item.emoji} **${item.name}** - ${formatMallonCoins(item.price)}\n${item.description}\n\n`;
+            }
+            
+            const embed = new EmbedBuilder()
+                .setColor(0x9932CC)
+                .setTitle('🏪 MallonCoin Shop')
+                .setDescription(shopItems)
+                .setFooter({ text: 'Use /buy <item name> to purchase an item!' })
+                .setTimestamp();
+                
+            await interaction.reply({ embeds: [embed] });
+            
+        } catch (error) {
+            console.error('Error in shop command:', error);
+            await interaction.reply({ content: '❌ Something went wrong with the shop!', ephemeral: true });
+        }
+    
+    } else if (commandName === 'buy') {
+        try {
+            const userId = interaction.user.id;
+            const guildId = interaction.guild?.id || 'dm';
+            const itemName = interaction.options.getString('item').toLowerCase();
+            
+            const userData = await getUserEconomyData(userId, guildId);
+            if (!userData) {
+                return await interaction.reply({ content: '❌ Database error!', ephemeral: true });
+            }
+            
+            // Find item in shop
+            const itemResult = await pool.query(
+                'SELECT * FROM shop_items WHERE LOWER(name) = $1 AND is_active = true',
+                [itemName]
+            );
+            
+            if (itemResult.rows.length === 0) {
+                return await interaction.reply({ content: `❌ Item "${itemName}" not found in shop! Use /shop to see available items.`, ephemeral: true });
+            }
+            
+            const item = itemResult.rows[0];
+            
+            if (userData.wallet_balance < item.price) {
+                return await interaction.reply({ 
+                    content: `❌ You don't have enough MallonCoins! You need ${formatMallonCoins(item.price)} but only have ${formatMallonCoins(userData.wallet_balance)}`,
+                    ephemeral: true 
+                });
+            }
+            
+            // Check if user already has this item
+            const inventoryResult = await pool.query(
+                'SELECT * FROM user_items WHERE user_id = $1 AND guild_id = $2 AND item_id = $3',
+                [userId, guildId, item.item_id]
+            );
+            
+            // Deduct money and add item
+            await updateUserBalance(userId, guildId, 'wallet', -item.price);
+            await logTransaction(userId, guildId, 'purchase', -item.price, `Bought ${item.name}`);
+            
+            if (inventoryResult.rows.length > 0) {
+                // Update quantity
+                await pool.query(
+                    'UPDATE user_items SET quantity = quantity + 1 WHERE user_id = $1 AND guild_id = $2 AND item_id = $3',
+                    [userId, guildId, item.item_id]
+                );
+            } else {
+                // Add new item
+                await pool.query(
+                    'INSERT INTO user_items (user_id, guild_id, item_id, quantity) VALUES ($1, $2, $3, 1)',
+                    [userId, guildId, item.item_id]
+                );
+            }
+            
+            const embed = new EmbedBuilder()
+                .setColor(0x00FF00)
+                .setTitle('🛒 Purchase Successful!')
+                .setDescription(`You bought **${item.name}** for ${formatMallonCoins(item.price)}! ${item.emoji}`)
+                .addFields([
+                    { name: '💰 Remaining Balance', value: formatMallonCoins(userData.wallet_balance - item.price), inline: true }
+                ])
+                .setTimestamp();
+                
+            await interaction.reply({ embeds: [embed] });
+            
+        } catch (error) {
+            console.error('Error in buy command:', error);
+            await interaction.reply({ content: '❌ Something went wrong with purchase!', ephemeral: true });
+        }
+    
+    } else if (commandName === 'inventory') {
+        try {
+            const userId = interaction.user.id;
+            const guildId = interaction.guild?.id || 'dm';
+            
+            const result = await pool.query(
+                'SELECT ui.quantity, si.name, si.emoji, si.description FROM user_items ui JOIN shop_items si ON ui.item_id = si.item_id WHERE ui.user_id = $1 AND ui.guild_id = $2 ORDER BY si.name',
+                [userId, guildId]
+            );
+            
+            if (result.rows.length === 0) {
+                return await interaction.reply({ content: '🎒 Your inventory is empty! Visit the /shop to buy some items.', ephemeral: true });
+            }
+            
+            let inventory = '';
+            for (const item of result.rows) {
+                const quantityText = item.quantity > 1 ? ` x${item.quantity}` : '';
+                inventory += `${item.emoji} **${item.name}**${quantityText}\n${item.description}\n\n`;
+            }
+            
+            const embed = new EmbedBuilder()
+                .setColor(0x8B4513)
+                .setTitle('🎒 Your Inventory')
+                .setDescription(inventory)
+                .setFooter({ text: 'Use your items wisely!' })
+                .setTimestamp();
+                
+            await interaction.reply({ embeds: [embed] });
+            
+        } catch (error) {
+            console.error('Error in inventory command:', error);
+            await interaction.reply({ content: '❌ Something went wrong with inventory!', ephemeral: true });
+        }
+    
+    } else if (commandName === 'chickenfight') {
+        try {
+            const userId = interaction.user.id;
+            const guildId = interaction.guild?.id || 'dm';
+            const opponent = interaction.options.getUser('opponent');
+            const betAmount = interaction.options.getInteger('bet') || 50;
+            
+            if (opponent.id === userId) {
+                return await interaction.reply({ content: '❌ You can\'t fight yourself!', ephemeral: true });
+            }
+            
+            if (opponent.bot) {
+                return await interaction.reply({ content: '❌ Bots don\'t have chickens to fight!', ephemeral: true });
+            }
+            
+            const userData = await getUserEconomyData(userId, guildId);
+            const opponentData = await getUserEconomyData(opponent.id, guildId);
+            
+            if (!userData || !opponentData) {
+                return await interaction.reply({ content: '❌ Database error!', ephemeral: true });
+            }
+            
+            // Check if both users have chickens
+            const userChicken = await pool.query(
+                'SELECT ui.quantity, si.name FROM user_items ui JOIN shop_items si ON ui.item_id = si.item_id WHERE ui.user_id = $1 AND ui.guild_id = $2 AND (LOWER(si.name) LIKE \'%chicken%\')',
+                [userId, guildId]
+            );
+            
+            const opponentChicken = await pool.query(
+                'SELECT ui.quantity, si.name FROM user_items ui JOIN shop_items si ON ui.item_id = si.item_id WHERE ui.user_id = $1 AND ui.guild_id = $2 AND (LOWER(si.name) LIKE \'%chicken%\')',
+                [opponent.id, guildId]
+            );
+            
+            if (userChicken.rows.length === 0) {
+                return await interaction.reply({ content: '❌ You don\'t have a chicken! Buy one from the /shop first.', ephemeral: true });
+            }
+            
+            if (opponentChicken.rows.length === 0) {
+                return await interaction.reply({ content: `❌ ${opponent.username} doesn't have a chicken to fight!`, ephemeral: true });
+            }
+            
+            // Check if both users have enough money for bet
+            if (userData.wallet_balance < betAmount) {
+                return await interaction.reply({ 
+                    content: `❌ You don't have enough MallonCoins to bet! You need ${formatMallonCoins(betAmount)} but only have ${formatMallonCoins(userData.wallet_balance)}`,
+                    ephemeral: true 
+                });
+            }
+            
+            if (opponentData.wallet_balance < betAmount) {
+                return await interaction.reply({ 
+                    content: `❌ ${opponent.username} doesn't have enough MallonCoins to match the bet!`,
+                    ephemeral: true 
+                });
+            }
+            
+            // Determine winner (random with slight advantage for golden chickens)
+            const userChickenName = userChicken.rows[0].name;
+            const opponentChickenName = opponentChicken.rows[0].name;
+            
+            let userAdvantage = 0.5; // Base 50/50 chance
+            if (userChickenName.toLowerCase().includes('golden')) userAdvantage += 0.15;
+            if (opponentChickenName.toLowerCase().includes('golden')) userAdvantage -= 0.15;
+            
+            const userWins = Math.random() < userAdvantage;
+            
+            // Transfer money
+            if (userWins) {
+                await updateUserBalance(opponent.id, guildId, 'wallet', -betAmount);
+                await updateUserBalance(userId, guildId, 'wallet', betAmount);
+                await logTransaction(userId, guildId, 'chickenfight_win', betAmount, `Won chickenfight vs ${opponent.username}`);
+                await logTransaction(opponent.id, guildId, 'chickenfight_lose', -betAmount, `Lost chickenfight vs ${interaction.user.username}`);
+            } else {
+                await updateUserBalance(userId, guildId, 'wallet', -betAmount);
+                await updateUserBalance(opponent.id, guildId, 'wallet', betAmount);
+                await logTransaction(userId, guildId, 'chickenfight_lose', -betAmount, `Lost chickenfight vs ${opponent.username}`);
+                await logTransaction(opponent.id, guildId, 'chickenfight_win', betAmount, `Won chickenfight vs ${interaction.user.username}`);
+            }
+            
+            const winner = userWins ? interaction.user : opponent;
+            const loser = userWins ? opponent : interaction.user;
+            const winnerChicken = userWins ? userChickenName : opponentChickenName;
+            const loserChicken = userWins ? opponentChickenName : userChickenName;
+            
+            const fightDescriptions = [
+                `${winnerChicken} delivered a devastating peck to ${loserChicken}!`,
+                `${winnerChicken} used Wing Slap! It was super effective!`,
+                `${loserChicken} tried to flee but ${winnerChicken} cornered them!`,
+                `${winnerChicken} showed superior fighting technique!`,
+                `${loserChicken} got distracted by some seeds and ${winnerChicken} seized the moment!`
+            ];
+            
+            const embed = new EmbedBuilder()
+                .setColor(userWins ? 0x00FF00 : 0xFF0000)
+                .setTitle('🐔 CHICKEN FIGHT! 🐔')
+                .setDescription(`**${interaction.user.username}'s ${userChickenName}** VS **${opponent.username}'s ${opponentChickenName}**\n\n${fightDescriptions[Math.floor(Math.random() * fightDescriptions.length)]}\n\n🏆 **${winner.username}** wins ${formatMallonCoins(betAmount)}!`)
+                .setThumbnail('https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?w=300')
+                .setFooter({ text: 'May the best chicken win!' })
+                .setTimestamp();
+                
+            await interaction.reply({ embeds: [embed] });
+            
+            // Try to notify the opponent
+            try {
+                const message = userWins 
+                    ? `🐔 Your ${opponentChickenName} lost a fight to ${interaction.user.username}'s ${userChickenName}! You lost ${formatMallonCoins(betAmount)}.`
+                    : `🐔 Your ${opponentChickenName} won a fight against ${interaction.user.username}'s ${userChickenName}! You won ${formatMallonCoins(betAmount)}!`;
+                await opponent.send(message);
+            } catch (error) {
+                // Ignore if can't DM
+            }
+            
+        } catch (error) {
+            console.error('Error in chickenfight command:', error);
+            await interaction.reply({ content: '❌ Something went wrong with the chicken fight!', ephemeral: true });
+        }
+    
     } else if (commandName === 'blackjack') {
         try {
             const userId = interaction.user.id;
+            const guildId = interaction.guild?.id || 'dm';
+            const betAmount = interaction.options.getInteger('bet') || 50;
+            
+            // Check if user has enough money
+            const userData = await getUserEconomyData(userId, guildId);
+            if (!userData) {
+                return await interaction.reply({ content: '❌ Database error!', ephemeral: true });
+            }
+            
+            if (userData.wallet_balance < betAmount) {
+                return await interaction.reply({ 
+                    content: `❌ You don't have enough MallonCoins! You need ${formatMallonCoins(betAmount)} but only have ${formatMallonCoins(userData.wallet_balance)}`,
+                    ephemeral: true 
+                });
+            }
+            
+            // Deduct bet amount
+            await updateUserBalance(userId, guildId, 'wallet', -betAmount);
             
             // Create new game
             const deck = createDeck();
