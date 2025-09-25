@@ -14,40 +14,6 @@ const figlet = require('figlet');
 const crypto = require('crypto');
 const fs = require('fs');
 
-// Shutdown date: September 24th
-const SHUTDOWN_DATE = new Date('2025-09-24T00:00:00Z');
-
-// Function to calculate days remaining until shutdown
-function getDaysUntilShutdown() {
-    const now = new Date();
-    const timeRemaining = SHUTDOWN_DATE.getTime() - now.getTime();
-    const daysRemaining = Math.ceil(timeRemaining / (1000 * 60 * 60 * 24));
-    return Math.max(0, daysRemaining);
-}
-
-// Function to get predetermined burning Einstein images based on intensity
-function getBurningEinsteinImage(intensity) {
-    const images = {
-        0: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Fire_breathing_2.jpg/800px-Fire_breathing_2.jpg', // Intense fire for final day
-        1: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Fire_breathing_1.jpg/800px-Fire_breathing_1.jpg', // Major flames
-        2: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Bonfire_4469.jpg/800px-Bonfire_4469.jpg', // Starting fire
-        3: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/Campfire_4213.jpg/800px-Campfire_4213.jpg', // Small fire
-        default: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Albert_Einstein_Head.jpg/400px-Albert_Einstein_Head.jpg' // Normal Einstein
-    };
-    
-    // Return appropriate image based on days remaining
-    if (intensity <= 0) return images[0]; // Final day - intense fire
-    else if (intensity === 1) return images[1]; // 1 day - major flames  
-    else if (intensity === 2) return images[2]; // 2 days - starting fire
-    else if (intensity <= 5) return images[3]; // Few days - small fire
-    else return images.default; // Many days - normal Einstein
-}
-
-// Function to check if it's past shutdown date (for display only)
-function isShutdownDatePassed() {
-    const now = new Date();
-    return now >= SHUTDOWN_DATE;
-}
 
 // Load Catechism data
 let catechismData = null;
@@ -2013,8 +1979,8 @@ const commands = [
         ]
     },
     {
-        name: 'die',
-        description: 'View the countdown to bot shutdown with burning Einstein',
+        name: 'bonghit',
+        description: 'Take a bong hit',
         integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
         contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
     },
@@ -3851,102 +3817,19 @@ client.on('interactionCreate', async interaction => {
                 ephemeral: true 
             });
         }
-    } else if (commandName === 'die') {
+    } else if (commandName === 'bonghit') {
         try {
-            // Check if already replied/deferred to avoid errors
-            if (!interaction.replied && !interaction.deferred) {
-                await interaction.deferReply();
-            }
-            
-            const daysRemaining = getDaysUntilShutdown();
-            
-            // If shutdown date has passed, show final message (but don't shut down)
-            if (daysRemaining <= 0) {
-                const finalEmbed = new EmbedBuilder()
-                    .setTitle('🔥 SHUTDOWN DATE REACHED 🔥')
-                    .setDescription('**THE COUNTDOWN IS OVER**\n\nSeptember 24th has arrived!\n\n*Einstein burns in eternal flames...*')
-                    .setColor(0xFF0000) // Red
-                    .setImage('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Fire_animation.gif/300px-Fire_animation.gif')
-                    .setFooter({ text: 'The countdown is complete... 🔥' })
-                    .setTimestamp();
-                
-                await interaction.editReply({ embeds: [finalEmbed] });
-                return;
-            }
-            
-            // Show countdown with burning Einstein
-            await interaction.editReply({
-                content: '```\n🔥 GENERATING BURNING EINSTEIN...\n⚡ CALCULATING DOOM COUNTDOWN...\n💀 PREPARING APOCALYPSE...\n```'
-            });
-            
-            // Get the appropriate burning Einstein image
-            const burningImageUrl = getBurningEinsteinImage(daysRemaining);
-            
-            // Create countdown embed
-            let embedColor, intensityText, countdownMessage;
-            
-            if (daysRemaining <= 1) {
-                embedColor = 0xFF0000; // Red - critical
-                intensityText = 'CRITICAL - IMMINENT DESTRUCTION';
-                countdownMessage = '**THE FLAMES CONSUME EVERYTHING**';
-            } else if (daysRemaining <= 2) {
-                embedColor = 0xFF4500; // Orange - high intensity
-                intensityText = 'HIGH - FIRE SPREADING RAPIDLY';
-                countdownMessage = '**EINSTEIN IS BURNING**';
-            } else {
-                embedColor = 0xFFD700; // Gold - building intensity
-                intensityText = 'BUILDING - SPARKS BEGINNING';
-                countdownMessage = '**The countdown begins...**';
-            }
-            
-            const embed = new EmbedBuilder()
-                .setTitle('🔥 BOT SHUTDOWN COUNTDOWN 🔥')
-                .setDescription(`${countdownMessage}\n\nSiggi Bot will permanently shut down on **September 24th, 2025**`)
-                .setColor(embedColor)
-                .setImage(burningImageUrl)
-                .addFields(
-                    {
-                        name: '⏰ TIME REMAINING',
-                        value: `**${daysRemaining} ${daysRemaining === 1 ? 'DAY' : 'DAYS'}**`,
-                        inline: true
-                    },
-                    {
-                        name: '🔥 FIRE INTENSITY',
-                        value: intensityText,
-                        inline: true
-                    },
-                    {
-                        name: '💀 SHUTDOWN DATE',
-                        value: 'September 24th, 2025\n*12:00 AM UTC*',
-                        inline: true
-                    }
-                )
-                .setFooter({ 
-                    text: `Einstein's fate grows darker each day... • Requested by ${interaction.user.displayName}` 
-                })
-                .setTimestamp();
-            
-            await interaction.editReply({ content: '', embeds: [embed] });
+            await interaction.reply('mumble');
             
             const location = interaction.guild ? interaction.guild.name : 'DM';
-            console.log(`Die command used by ${interaction.user.tag} in ${location} - ${daysRemaining} days remaining`);
+            console.log(`Bonghit command used by ${interaction.user.tag} in ${location}`);
             
         } catch (error) {
-            console.error('Error in die command:', error);
-            try {
-                if (!interaction.replied && !interaction.deferred) {
-                    await interaction.reply({
-                        content: '🔥 Apocalypse calculator is malfunctioning! Try again later.',
-                        ephemeral: true
-                    });
-                } else {
-                    await interaction.editReply({
-                        content: '🔥 Apocalypse calculator is malfunctioning! Try again later.',
-                    });
-                }
-            } catch {
-                console.error('Failed to send error message to user');
-            }
+            console.error('Error in bonghit command:', error);
+            await interaction.reply({ 
+                content: 'mumble', 
+                ephemeral: true 
+            });
         }
     }
 });
