@@ -1552,6 +1552,78 @@ async function getWeatherData(latitude, longitude) {
     }
 }
 
+// Blackjack game logic
+const blackjackGames = new Map(); // Store active games per user
+
+// Create a standard 52-card deck
+function createDeck() {
+    const suits = ['Spades', 'Hearts', 'Diamonds', 'Clubs'];
+    const ranks = ['Ace', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Jack', 'Queen', 'King'];
+    const deck = [];
+    
+    for (const suit of suits) {
+        for (const rank of ranks) {
+            deck.push({ rank, suit, value: getCardValue(rank) });
+        }
+    }
+    
+    return shuffleDeck(deck);
+}
+
+// Shuffle deck using Fisher-Yates algorithm
+function shuffleDeck(deck) {
+    const shuffled = [...deck];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+}
+
+// Get base card value (Ace = 11 initially)
+function getCardValue(rank) {
+    if (rank === 'Ace') return 11;
+    if (['Jack', 'Queen', 'King'].includes(rank)) return 10;
+    return parseInt(rank);
+}
+
+// Calculate hand value with Ace optimization
+function calculateHandValue(hand) {
+    let value = hand.reduce((sum, card) => sum + card.value, 0);
+    let aces = hand.filter(card => card.rank === 'Ace').length;
+    
+    // Convert Aces from 11 to 1 if busting
+    while (value > 21 && aces > 0) {
+        value -= 10;
+        aces--;
+    }
+    
+    return value;
+}
+
+// Format a card for display
+function formatCard(card) {
+    return `${card.rank} of ${card.suit}`;
+}
+
+// Format hand for display
+function formatHand(hand, hideSecond = false) {
+    if (hideSecond && hand.length >= 2) {
+        return `${formatCard(hand[0])}, [Hidden Card]`;
+    }
+    return hand.map(formatCard).join(', ');
+}
+
+// Deal a card from deck
+function dealCard(deck) {
+    return deck.pop();
+}
+
+// Check if hand is blackjack (21 with 2 cards)
+function isBlackjack(hand) {
+    return hand.length === 2 && calculateHandValue(hand) === 21;
+}
+
 // Commands with DM integration support
 const commands = [
     {
@@ -2002,6 +2074,12 @@ const commands = [
     {
         name: 'bonghit',
         description: 'Take a bong hit',
+        integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
+        contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
+    },
+    {
+        name: 'blackjack',
+        description: 'Start a game of Blackjack',
         integration_types: [0, 1], // 0 = guild, 1 = user (DMs)
         contexts: [0, 1, 2] // 0 = guild, 1 = bot DM, 2 = private channel
     },
@@ -3887,6 +3965,338 @@ client.on('interactionCreate', async interaction => {
                 ephemeral: true 
             });
         }
+    } else if (commandName === 'blackjack') {
+        try {
+            const userId = interaction.user.id;
+            
+            // Create new game
+            const deck = createDeck();
+            const playerHand = [dealCard(deck), dealCard(deck)];
+            const dealerHand = [dealCard(deck), dealCard(deck)];
+            
+            const game = {
+                userId,
+                deck,
+                playerHand,
+                dealerHand,
+                gameOver: false,
+                playerBusted: false,
+                dealerBusted: false
+            };
+            
+            blackjackGames.set(userId, game);
+            
+            const playerValue = calculateHandValue(playerHand);
+            const dealerVisibleValue = dealerHand[0].value;
+            
+            // Check for player blackjack
+            if (isBlackjack(playerHand)) {
+                game.gameOver = true;
+                const dealerValue = calculateHandValue(dealerHand);
+                const dealerHasBlackjack = isBlackjack(dealerHand);
+                
+                let result;
+                let color;
+                if (dealerHasBlackjack) {
+                    result = "It's a push! Both you and the dealer have blackjack!";
+                    color = 0xFFFF00;
+                } else {
+                    result = "🎉 BLACKJACK! You win!";
+                    color = 0x00FF00;
+                }
+                
+                const embed = new EmbedBuilder()
+                    .setTitle('🎴 Blackjack')
+                    .setDescription(result)
+                    .addFields(
+                        { name: '🃏 Your Hand', value: `${formatHand(playerHand)}\n**Value: ${playerValue}**`, inline: true },
+                        { name: '🎰 Dealer Hand', value: `${formatHand(dealerHand)}\n**Value: ${dealerValue}**`, inline: true }
+                    )
+                    .setColor(color)
+                    .setFooter({ text: `Game for ${interaction.user.displayName}` });
+                
+                const playAgainButton = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('blackjack_new_game')
+                            .setLabel('🔄 Play Again')
+                            .setStyle(ButtonStyle.Primary)
+                    );
+                
+                await interaction.reply({ embeds: [embed], components: [playAgainButton] });
+                blackjackGames.delete(userId);
+                return;
+            }
+            
+            // Regular game start
+            const embed = new EmbedBuilder()
+                .setTitle('🎴 Blackjack')
+                .setDescription('Your turn! Hit or Stand?')
+                .addFields(
+                    { name: '🃏 Your Hand', value: `${formatHand(playerHand)}\n**Value: ${playerValue}**`, inline: true },
+                    { name: '🎰 Dealer Hand', value: `${formatHand(dealerHand, true)}\n**Visible: ${dealerVisibleValue}**`, inline: true }
+                )
+                .setColor(0x0099FF)
+                .setFooter({ text: `Game for ${interaction.user.displayName}` });
+            
+            const buttons = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('blackjack_hit')
+                        .setLabel('🃏 Hit')
+                        .setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder()
+                        .setCustomId('blackjack_stand')
+                        .setLabel('🛑 Stand')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+            
+            await interaction.reply({ embeds: [embed], components: [buttons] });
+            
+            const location = interaction.guild ? interaction.guild.name : 'DM';
+            console.log(`Blackjack command used by ${interaction.user.tag} in ${location}`);
+            
+        } catch (error) {
+            console.error('Error in blackjack command:', error);
+            await interaction.reply({ 
+                content: '🎴 Something went wrong starting the blackjack game. Try again!', 
+                ephemeral: true 
+            });
+        }
+    }
+});
+
+// Handle button interactions
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isButton()) return;
+    
+    const userId = interaction.user.id;
+    const game = blackjackGames.get(userId);
+    
+    if (!game) {
+        await interaction.reply({ 
+            content: '🎴 No active blackjack game found. Use `/blackjack` to start a new game!', 
+            ephemeral: true 
+        });
+        return;
+    }
+    
+    if (game.userId !== userId) {
+        await interaction.reply({ 
+            content: '🎴 This is not your game!', 
+            ephemeral: true 
+        });
+        return;
+    }
+    
+    try {
+        if (interaction.customId === 'blackjack_hit') {
+            // Player hits
+            const newCard = dealCard(game.deck);
+            game.playerHand.push(newCard);
+            
+            const playerValue = calculateHandValue(game.playerHand);
+            
+            if (playerValue > 21) {
+                // Player busts
+                game.gameOver = true;
+                game.playerBusted = true;
+                
+                const embed = new EmbedBuilder()
+                    .setTitle('🎴 Blackjack')
+                    .setDescription('💥 You busted! Dealer wins!')
+                    .addFields(
+                        { name: '🃏 Your Hand', value: `${formatHand(game.playerHand)}\n**Value: ${playerValue}**`, inline: true },
+                        { name: '🎰 Dealer Hand', value: `${formatHand(game.dealerHand)}\n**Value: ${calculateHandValue(game.dealerHand)}**`, inline: true }
+                    )
+                    .setColor(0xFF0000)
+                    .setFooter({ text: `Game for ${interaction.user.displayName}` });
+                
+                const playAgainButton = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('blackjack_new_game')
+                            .setLabel('🔄 Play Again')
+                            .setStyle(ButtonStyle.Primary)
+                    );
+                
+                await interaction.update({ embeds: [embed], components: [playAgainButton] });
+                blackjackGames.delete(userId);
+                
+            } else {
+                // Continue game
+                const dealerVisibleValue = game.dealerHand[0].value;
+                
+                const embed = new EmbedBuilder()
+                    .setTitle('🎴 Blackjack')
+                    .setDescription('Your turn! Hit or Stand?')
+                    .addFields(
+                        { name: '🃏 Your Hand', value: `${formatHand(game.playerHand)}\n**Value: ${playerValue}**`, inline: true },
+                        { name: '🎰 Dealer Hand', value: `${formatHand(game.dealerHand, true)}\n**Visible: ${dealerVisibleValue}**`, inline: true }
+                    )
+                    .setColor(0x0099FF)
+                    .setFooter({ text: `Game for ${interaction.user.displayName}` });
+                
+                const buttons = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('blackjack_hit')
+                            .setLabel('🃏 Hit')
+                            .setStyle(ButtonStyle.Primary),
+                        new ButtonBuilder()
+                            .setCustomId('blackjack_stand')
+                            .setLabel('🛑 Stand')
+                            .setStyle(ButtonStyle.Secondary)
+                    );
+                
+                await interaction.update({ embeds: [embed], components: [buttons] });
+            }
+            
+        } else if (interaction.customId === 'blackjack_stand') {
+            // Player stands - dealer's turn
+            game.gameOver = true;
+            
+            // Dealer draws until 17 or higher
+            while (calculateHandValue(game.dealerHand) < 17) {
+                const newCard = dealCard(game.deck);
+                game.dealerHand.push(newCard);
+            }
+            
+            const playerValue = calculateHandValue(game.playerHand);
+            const dealerValue = calculateHandValue(game.dealerHand);
+            
+            let result;
+            let color;
+            
+            if (dealerValue > 21) {
+                result = '🎉 Dealer busted! You win!';
+                color = 0x00FF00;
+                game.dealerBusted = true;
+            } else if (dealerValue > playerValue) {
+                result = '😔 Dealer wins!';
+                color = 0xFF0000;
+            } else if (playerValue > dealerValue) {
+                result = '🎉 You win!';
+                color = 0x00FF00;
+            } else {
+                result = '🤝 Push! It\'s a tie!';
+                color = 0xFFFF00;
+            }
+            
+            const embed = new EmbedBuilder()
+                .setTitle('🎴 Blackjack')
+                .setDescription(result)
+                .addFields(
+                    { name: '🃏 Your Hand', value: `${formatHand(game.playerHand)}\n**Value: ${playerValue}**`, inline: true },
+                    { name: '🎰 Dealer Hand', value: `${formatHand(game.dealerHand)}\n**Value: ${dealerValue}**`, inline: true }
+                )
+                .setColor(color)
+                .setFooter({ text: `Game for ${interaction.user.displayName}` });
+            
+            const playAgainButton = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('blackjack_new_game')
+                        .setLabel('🔄 Play Again')
+                        .setStyle(ButtonStyle.Primary)
+                );
+            
+            await interaction.update({ embeds: [embed], components: [playAgainButton] });
+            blackjackGames.delete(userId);
+            
+        } else if (interaction.customId === 'blackjack_new_game') {
+            // Start a new game
+            const deck = createDeck();
+            const playerHand = [dealCard(deck), dealCard(deck)];
+            const dealerHand = [dealCard(deck), dealCard(deck)];
+            
+            const newGame = {
+                userId,
+                deck,
+                playerHand,
+                dealerHand,
+                gameOver: false,
+                playerBusted: false,
+                dealerBusted: false
+            };
+            
+            blackjackGames.set(userId, newGame);
+            
+            const playerValue = calculateHandValue(playerHand);
+            const dealerVisibleValue = dealerHand[0].value;
+            
+            // Check for player blackjack
+            if (isBlackjack(playerHand)) {
+                newGame.gameOver = true;
+                const dealerValue = calculateHandValue(dealerHand);
+                const dealerHasBlackjack = isBlackjack(dealerHand);
+                
+                let result;
+                let color;
+                if (dealerHasBlackjack) {
+                    result = "It's a push! Both you and the dealer have blackjack!";
+                    color = 0xFFFF00;
+                } else {
+                    result = "🎉 BLACKJACK! You win!";
+                    color = 0x00FF00;
+                }
+                
+                const embed = new EmbedBuilder()
+                    .setTitle('🎴 Blackjack')
+                    .setDescription(result)
+                    .addFields(
+                        { name: '🃏 Your Hand', value: `${formatHand(playerHand)}\n**Value: ${playerValue}**`, inline: true },
+                        { name: '🎰 Dealer Hand', value: `${formatHand(dealerHand)}\n**Value: ${dealerValue}**`, inline: true }
+                    )
+                    .setColor(color)
+                    .setFooter({ text: `Game for ${interaction.user.displayName}` });
+                
+                const playAgainButton = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('blackjack_new_game')
+                            .setLabel('🔄 Play Again')
+                            .setStyle(ButtonStyle.Primary)
+                    );
+                
+                await interaction.update({ embeds: [embed], components: [playAgainButton] });
+                blackjackGames.delete(userId);
+                return;
+            }
+            
+            // Regular new game
+            const embed = new EmbedBuilder()
+                .setTitle('🎴 Blackjack')
+                .setDescription('Your turn! Hit or Stand?')
+                .addFields(
+                    { name: '🃏 Your Hand', value: `${formatHand(playerHand)}\n**Value: ${playerValue}**`, inline: true },
+                    { name: '🎰 Dealer Hand', value: `${formatHand(dealerHand, true)}\n**Visible: ${dealerVisibleValue}**`, inline: true }
+                )
+                .setColor(0x0099FF)
+                .setFooter({ text: `Game for ${interaction.user.displayName}` });
+            
+            const buttons = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('blackjack_hit')
+                        .setLabel('🃏 Hit')
+                        .setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder()
+                        .setCustomId('blackjack_stand')
+                        .setLabel('🛑 Stand')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+            
+            await interaction.update({ embeds: [embed], components: [buttons] });
+        }
+        
+    } catch (error) {
+        console.error('Error in blackjack button interaction:', error);
+        await interaction.reply({ 
+            content: '🎴 Something went wrong with the blackjack game. Try starting a new game with `/blackjack`!', 
+            ephemeral: true 
+        });
+        blackjackGames.delete(userId);
     }
 });
 
